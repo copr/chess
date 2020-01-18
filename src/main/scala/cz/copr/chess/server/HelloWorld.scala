@@ -1,4 +1,4 @@
-package cz.copr.chess
+package cz.copr.chess.server
 
 import cats.Applicative
 import cats.implicits._

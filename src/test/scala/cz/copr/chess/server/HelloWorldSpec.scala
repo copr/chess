@@ -1,4 +1,4 @@
-package cz.copr.chess
+package cz.copr.chess.server
 
 import cats.effect.IO
 import org.http4s._
