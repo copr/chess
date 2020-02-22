@@ -8,13 +8,13 @@ import cats.effect.Console.io._
 
 object ConsoleGame {
   def main(args: Array[String]): Unit = {
-    program(GameState.createInitialState).unsafeRunSync()
+    program(Game.createInitialState).unsafeRunSync()
   }
 
-  def program(gameState: GameState): IO[Unit] = for {
+  def program(gameState: Game): IO[Unit] = for {
     newState <- turn(gameState).value
     _ <- newState match {
-      case Right(gameState) => if (gameState.finished) {
+      case Right(gameState) => if (gameState.gameState.isFinished) {
         for {
           _ <- putCurrentState(gameState)
           _ <- putStrLn("Timto konci bal")
@@ -29,17 +29,17 @@ object ConsoleGame {
     }
   } yield ()
 
-  def turn(gameState: GameState): EitherT[IO, String, GameState] = for {
+  def turn(gameState: Game): EitherT[IO, String, Game] = for {
     _          <- EitherT.liftF[IO, String, Unit](putStrLn("Current team " + gameState.team.toString))
     _          <- EitherT.liftF[IO, String, Unit](putStrLn("Current state:"))
     _          <- EitherT.liftF[IO, String, Unit](putCurrentState(gameState))
     _          <- EitherT.liftF[IO, String, Unit](putStrLn("State your move:"))
     moveString <- EitherT.liftF[IO, String, String](readLn)
     move       <- EitherT[IO, String, Move](NotationParser.parseMove(moveString).pure[IO])
-    newState   <- EitherT[IO, String, GameState](GameState.move(move, gameState).leftMap(_.toString).pure[IO])
+    newState   <- EitherT[IO, String, Game](Game.move(move, gameState).leftMap(_.toString).pure[IO])
   } yield newState.copy(team = newState.team.getOtherTeam)
 
-  def putCurrentState(state: GameState): IO[Unit] = {
+  def putCurrentState(state: Game): IO[Unit] = {
     val board = state.board
     val piecePositions = 1 to 8 map (rowIndex => 1 to 8 flatMap(columnIndex => Position.createPiecePosition(rowIndex, columnIndex)))
     val pieces = piecePositions.toVector.map(row => row.toVector.map(pp => pieceToString(board.getPieceOnPosition(pp))))

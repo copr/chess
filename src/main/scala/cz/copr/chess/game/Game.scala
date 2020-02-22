@@ -8,15 +8,27 @@ import cz.copr.chess.game.Position.PiecePosition
 import ChessPiece._
 
 
-case class GameState(board: ChessBoard, team: Team, finished: Boolean)
+sealed trait GameState {
+  def isFinished: Boolean = this match {
+    case Ongoing => false
+    case _       => true
+  }
+}
+
+case object WhiteWon extends GameState
+case object BlackWon extends GameState
+case object Draw     extends GameState
+case object Ongoing  extends GameState
+
+case class Game(board: ChessBoard, team: Team, gameState: GameState)
 
 
-object GameState {
+object Game {
   private type Result[A] = Either[IllegalMoveReason, A]
-  type MoveResult = Result[GameState]
+  type MoveResult = Result[Game]
   private type PieceSearchResult = Result[ChessPiece]
 
-  def move(move: Move, game: GameState): MoveResult = {
+  def move(move: Move, game: Game): MoveResult = {
     val cleareEnpasantableState = clearEnpasantable(game)
     val stateAfterMove = move match {
       case SmallCastling        => smallCastling(cleareEnpasantableState)
@@ -29,7 +41,7 @@ object GameState {
     stateAfterMove.map(gs => isCheckMate(gs))
   }
 
-  def bigCastling(gameState: GameState): MoveResult = for {
+  def bigCastling(gameState: Game): MoveResult = for {
     king <- gameState.board
       .getKing(gameState.team)
       .headOption
@@ -60,7 +72,7 @@ object GameState {
     }
   } yield newState
 
-  def smallCastling(gameState: GameState): MoveResult = for {
+  def smallCastling(gameState: Game): MoveResult = for {
     king <- gameState.board
       .getKing(gameState.team)
       .headOption
@@ -89,7 +101,7 @@ object GameState {
     }
   } yield newState
 
-  def clearEnpasantable(gameState: GameState): GameState = {
+  def clearEnpasantable(gameState: Game): Game = {
     val pawns = gameState.board.getPawns(gameState.team)
     val newBoard = pawns.foldLeft(gameState.board)((board, p) =>
       board
@@ -99,7 +111,7 @@ object GameState {
     gameState.copy(board = newBoard)
   }
 
-  def bigPieceCapture(bigPieceCapture: BigPieceCapture, gameState: GameState): MoveResult = {
+  def bigPieceCapture(bigPieceCapture: BigPieceCapture, gameState: Game): MoveResult = {
     val otherPiecePosition = PiecePosition(bigPieceCapture.captureRank, bigPieceCapture.captureFile)
     val pieces = gameState.board
       .getPieces(bigPieceCapture.piece, gameState.team)
@@ -110,7 +122,7 @@ object GameState {
     } yield newState
   }
 
-  def bigPieceMove(bigPieceMove: BigPieceMove, gameState: GameState): MoveResult = {
+  def bigPieceMove(bigPieceMove: BigPieceMove, gameState: Game): MoveResult = {
     val newPosition = PiecePosition(bigPieceMove.toRank, bigPieceMove.toFile)
     val pieces = gameState.board
       .getPieces(bigPieceMove.piece, gameState.team)
@@ -162,7 +174,7 @@ object GameState {
     }
   }
 
-  def pawnCapture(pawnCapture: PawnCapture, gameState: GameState): MoveResult = {
+  def pawnCapture(pawnCapture: PawnCapture, gameState: Game): MoveResult = {
     val pawns = gameState.board.getPawnsInFile(pawnCapture.file, gameState.team)
     val otherPiecePosition = PiecePosition(pawnCapture.captureRank, pawnCapture.captureFile)
     val legiblePawns = pawns.filter(p => {
@@ -191,7 +203,7 @@ object GameState {
     }
   }
 
-  private def enpassantCapture(pawn: Pawn, gameState: GameState): MoveResult = for {
+  private def enpassantCapture(pawn: Pawn, gameState: Game): MoveResult = for {
       potentialPosition <- Position.subtractMovesSafe(pawn.position, 1, 0).toRight(MoveNotAllowed)
       pawnToTake <- gameState.board.getPawns(gameState.team.getOtherTeam)
                                    .find(p => p.position == potentialPosition && p.enpasantable)
@@ -201,7 +213,7 @@ object GameState {
       .put(Pawn(potentialPosition, pawn.team, enpasantable = false), potentialPosition)
       .remove(pawn))
 
-  def pawnMove(pawnMove: PawnMove, gameState: GameState): MoveResult = {
+  def pawnMove(pawnMove: PawnMove, gameState: Game): MoveResult = {
     val pawns = gameState.board.getPawnsInFile(pawnMove.file, gameState.team)
     val positionToMoveTo = PiecePosition(pawnMove.toRank, pawnMove.file)
     val legiblePawns = pawns.filter(p => {
@@ -256,9 +268,10 @@ object GameState {
     isChecked = otherTeamsPieces.exists(p => canPieceMove(p, king, board))
   } yield isChecked).getOrElse(false)
 
-  def isCheckMate(gameState: GameState): GameState =
+  def isCheckMate(gameState: Game): Game =
     if (isCheck(gameState.board, gameState.team.getOtherTeam) && !canKingGoAnywhere(gameState.board, gameState.team.getOtherTeam)) {
-      gameState.copy(finished = true)
+      val finishedState = if (gameState.team == White) WhiteWon else BlackWon
+      gameState.copy(gameState = finishedState)
     } else {
       gameState
     }
@@ -278,7 +291,7 @@ object GameState {
   }
 
   // TODO: Move somewhere else?
-  def createInitialState: GameState = {
+  def createInitialState: Game = {
     val init: ChessBoard = ChessBoard(Map())
     val addPieces = for {
       _ <- putPawns
@@ -288,7 +301,7 @@ object GameState {
       _ <- putQueens
       _ <- putKings
     } yield ()
-    GameState(addPieces.run(init).value._1, team = White, finished = false)
+    Game(addPieces.run(init).value._1, team = White, gameState = Ongoing)
   }
 
   def putPieces(columns: Vector[Int], row: Int)(f: (PiecePosition, Team) => ChessPiece): State[ChessBoard, Unit] = for {

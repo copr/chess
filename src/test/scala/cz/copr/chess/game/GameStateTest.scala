@@ -16,7 +16,7 @@ class GameStateTest extends Specification {
       PortableGameNotationParser.parsePng(s) match {
         case Right(value) =>
           val game = TestGame.play(value.moves.map(_._1))
-          game.finished
+          game.gameState.isFinished
         case Left(_) => false
       }
     }
@@ -165,10 +165,10 @@ class GameStateTest extends Specification {
     }
   }
 
-  def createCastlingSequenceKingMoves(team: Team, big: Boolean): (GameState, List[Move]) = {
+  def createCastlingSequenceKingMoves(team: Team, big: Boolean): (Game, List[Move]) = {
     val (board, xPosition, newXPosition, _) = setupCastling(team, big)
 
-    val gameState = GameState(board, team, finished = false)
+    val gameState = Game(board, team, gameState = Ongoing)
     val kingMove1 = BigPieceMove(KingType, None, None, 5, newXPosition)
     val kingMove2 = BigPieceMove(KingType, None, None, 5, xPosition)
     val castling  = if (big) BigCastling else SmallCastling
@@ -190,10 +190,10 @@ class GameStateTest extends Specification {
     (board, xPosition, newXPosition, yPosition)
   }
 
-  private def createCastlingSequenceRookMoves(team: Team, big: Boolean): (GameState, List[Move]) = {
+  private def createCastlingSequenceRookMoves(team: Team, big: Boolean): (Game, List[Move]) = {
     val (board, xPosition, newXPosition, yPosition) = setupCastling(team, big)
 
-    val gameState = GameState(board, team, finished = false)
+    val gameState = Game(board, team, gameState = Ongoing)
     val rookMove1 = BigPieceMove(RookType, None, None, yPosition, newXPosition)
     val rookMove2 = BigPieceMove(RookType, None, None, yPosition, xPosition)
     val castling = if (big) BigCastling else SmallCastling
