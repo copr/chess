@@ -2,6 +2,7 @@ package cz.copr.chess.game
 
 import cats._
 import cats.implicits._
+import cats.data.OptionT
 import cats.data.State
 
 import cz.copr.chess.game.Position.PiecePosition
@@ -29,16 +30,16 @@ object Game {
   private type PieceSearchResult = Result[ChessPiece]
 
   def move(move: Move, game: Game): MoveResult = {
-    val cleareEnpasantableState = clearEnpasantable(game)
+    val clearedEnpasantableState = clearEnpasantable(game)
     val stateAfterMove = move match {
-      case SmallCastling        => smallCastling(cleareEnpasantableState)
-      case BigCastling          => bigCastling(cleareEnpasantableState)
-      case bpm: BigPieceMove    => bigPieceMove(bpm, cleareEnpasantableState)
-      case bpc: BigPieceCapture => bigPieceCapture(bpc, cleareEnpasantableState)
-      case pc: PawnCapture      => pawnCapture(pc, cleareEnpasantableState)
-      case pm: PawnMove         => pawnMove(pm, cleareEnpasantableState)
+      case SmallCastling        => smallCastling(clearedEnpasantableState)
+      case BigCastling          => bigCastling(clearedEnpasantableState)
+      case bpm: BigPieceMove    => bigPieceMove(bpm, clearedEnpasantableState)
+      case bpc: BigPieceCapture => bigPieceCapture(bpc, clearedEnpasantableState)
+      case pc: PawnCapture      => pawnCapture(pc, clearedEnpasantableState)
+      case pm: PawnMove         => pawnMove(pm, clearedEnpasantableState)
     }
-    stateAfterMove.map(gs => isCheckMate(gs))
+    stateAfterMove.map(gs => isDraw(isCheckMate(gs)))
   }
 
   def bigCastling(gameState: Game): MoveResult = for {
@@ -117,7 +118,7 @@ object Game {
       .getPieces(bigPieceCapture.piece, gameState.team)
       .filter(p => canMoveToPosition(p, otherPiecePosition, gameState.board))
     for {
-      piece <- getTheRightPiece(bigPieceCapture.file, bigPieceCapture.rank, pieces)
+      piece    <- getTheRightPiece(bigPieceCapture.file, bigPieceCapture.rank, pieces)
       newState <- gameState.copy(board = gameState.board.move(piece, otherPiecePosition)).asRight[IllegalMoveReason]
     } yield newState
   }
@@ -128,13 +129,13 @@ object Game {
       .getPieces(bigPieceMove.piece, gameState.team)
       .filter(p => canMoveToPosition(p, newPosition, gameState.board))
     for {
-      piece <- getTheRightPiece(bigPieceMove.file, bigPieceMove.rank, pieces)
+      piece    <- getTheRightPiece(bigPieceMove.file, bigPieceMove.rank, pieces)
       newState <- gameState.copy(board = gameState.board.move(piece, newPosition)).asRight[IllegalMoveReason]
     } yield newState
   }
 
   private def getTheRightPiece(file: Option[Position.PositionY], rank: Option[Position.PositionX], pieces: Vector[ChessPiece]): PieceSearchResult = {
-    getPiece(pieces) <+> getPieceByFile(pieces, file) <+> getPieceByRank(pieces, rank) <+>
+    getPiece(pieces) orElse getPieceByFile(pieces, file) orElse getPieceByRank(pieces, rank) orElse
       getPieceByFileAndRank(pieces, file, rank)
   }
 
@@ -189,12 +190,12 @@ object Game {
       } yield gameState.copy(board = newBoard)
     } else if (legiblePawns.length == 1) {
       val enpassant = for {
-        pawn <- legiblePawns.headOption.toRight(CouldNotFindThePiece(PawnType))
+        pawn     <- legiblePawns.headOption.toRight(CouldNotFindThePiece(PawnType))
         newState <- enpassantCapture(pawn.asInstanceOf[Pawn], gameState)
       } yield newState
       val normal = for {
-        pawn <- legiblePawns.headOption.toRight(CouldNotFindThePiece(PawnType))
-        newPawn = Pawn(otherPiecePosition, pawn.team, enpasantable = false)
+        pawn     <- legiblePawns.headOption.toRight(CouldNotFindThePiece(PawnType))
+        newPawn  = Pawn(otherPiecePosition, pawn.team, enpasantable = false)
         newBoard = gameState.board.remove(pawn).put(newPawn, otherPiecePosition)
       } yield gameState.copy(board = newBoard)
       enpassant <+> normal
@@ -204,7 +205,11 @@ object Game {
   }
 
   private def enpassantCapture(pawn: Pawn, gameState: Game): MoveResult = for {
-      potentialPosition <- Position.subtractMovesSafe(pawn.position, 1, 0).toRight(MoveNotAllowed)
+      potentialPosition <- if (pawn.team == White) {
+        Position.addMove(pawn.position, -1, 0).toRight(MoveNotAllowed)
+      } else {
+        Position.addMove(pawn.position,  1, 0).toRight(MoveNotAllowed)
+      }
       pawnToTake <- gameState.board.getPawns(gameState.team.getOtherTeam)
                                    .find(p => p.position == potentialPosition && p.enpasantable)
                                    .toRight(EnPassantInapplicable)
@@ -253,13 +258,13 @@ object Game {
     canPieceMove(chessPiece, otherChessPiece, board) && !isCheck(board.move(chessPiece, otherChessPiece.position), chessPiece.team)
 
   private def canPieceMove(piece: ChessPiece, otherPiece: ChessPiece, board: ChessBoard): Boolean = piece match {
-    case k@Knight(_, _) => canKnightMove(k, otherPiece)
+    case k@Knight(_, _)  => canKnightMove(k, otherPiece)
     case p@Pawn(_, _, _) => canPawnMove(p, otherPiece)
     case r@Rook(p, _, _) => canRookMove(r, otherPiece) && board.isEmptyFromTo(p, otherPiece.position)
-    case b@Bishop(p, _) => canBishopMove(b, otherPiece) && board.isEmptyFromTo(p, otherPiece.position)
-    case q@Queen(p, _) => canQueenMove(q, otherPiece) && board.isEmptyFromTo(p, otherPiece.position)
-    case k@King(p, _, _) => canKingMove(k, otherPiece)
-    case Empty(_, _) => false
+    case b@Bishop(p, _)  => canBishopMove(b, otherPiece) && board.isEmptyFromTo(p, otherPiece.position)
+    case q@Queen(p, _)   => canQueenMove(q, otherPiece) && board.isEmptyFromTo(p, otherPiece.position)
+    case k@King(_, _, _) => canKingMove(k, otherPiece)
+    case Empty(_, _)     => false
   }
 
   def isCheck(board: ChessBoard, team: Team): Boolean = (for {
@@ -275,6 +280,113 @@ object Game {
     } else {
       gameState
     }
+
+  def isDraw(gs: Game): Game =
+    if (getAllPossibleMoves(gs).nonEmpty) {
+      gs
+    } else {
+      gs.copy(gameState = Draw)
+    }
+
+  def getAllPossibleMoves(game: Game): Stream[Move] =
+    game.board.getAllTeamsPieces(game.team.getOtherTeam).toStream.flatMap {
+      case p: Pawn   => getAllPosibbleMovesForPawn(p, game)
+      case r: Rook   => getAllPossibleMovesForRook(r, game)
+      case b: Bishop => getAllPossibleMovesForBishop(b, game)
+      case n: Knight => getAllPossibleMovesForKnight(n, game)
+      case q: Queen  => getAllPossibleMovesForQueen(q, game)
+      case k: King   => getAllPossibleMovesForKing(k, game)
+      case _         => Stream.empty
+    }
+
+  def getAllPosibbleMovesForPawn(pawn: Pawn, game: Game): Stream[Move] = {
+    val possibleMoves = Stream((1, 0), (2, 0))
+      .flatMap(tup => Position.addMove(pawn.position, tup._1, tup._2))
+      .map(game.board.getPieceOnPosition)
+      .filter(canPawnMove(pawn, _))
+      .map(otherPiece => PawnMove(otherPiece.position.y, otherPiece.position.x, None))
+    val possibleCaptures = Stream((1, 1), (1, -1))
+      .flatMap(tup => Position.addMove(pawn.position, tup._1, tup._2))
+      .map(game.board.getPieceOnPosition)
+      .filter(canPawnMove(pawn, _))
+      .map(otherPiece => PawnCapture(pawn.position.y, otherPiece.position.y, otherPiece.position.x, None))
+    possibleMoves ++ possibleCaptures
+  }
+
+  def getAllPossibleMovesForRook(rook: ChessPiece, game: Game): Stream[Move] = {
+    val movesInAColumn = for {
+      x  <- Stream.range(1, 8)
+      px <- Position.createPositionX(x)
+    } yield PiecePosition(px, rook.position.y)
+    val movesInARow = for {
+      y  <- Stream.range(1, 8)
+      py <- Position.createPositionY(y)
+    } yield PiecePosition(rook.position.x, py)
+    val possibleMoves = movesInAColumn ++ movesInARow
+    possibleMoves
+      .map(game.board.getPieceOnPosition)
+      .filter(canMove(rook, _, game.board))
+      .map(createMoveOrCapture(rook, RookType, _))
+  }
+
+  def getAllPossibleMovesForBishop(bishop: ChessPiece, game: Game): Stream[Move] = {
+    val leftToRightCrossMoves = for {
+      increment   <- Stream.range(1, 8)
+      startPositionX = bishop.position.x.value - bishop.position.y.value + 1
+      startPositionY = bishop.position.y.value - bishop.position.x.value + 1
+      newPosition <- Position.createPiecePosition(startPositionX + increment, startPositionY + increment)
+    } yield newPosition
+    val rightToLeftCrossMoves = for {
+      increment   <- Stream.range(1, 8)
+      startPositionX = bishop.position.x.value - bishop.position.y.value + 1
+      startPositionY = bishop.position.y.value + bishop.position.x.value - 1
+      newPosition <- Position.createPiecePosition(startPositionX + increment, startPositionY - increment)
+    } yield newPosition
+    val possibleMoves = leftToRightCrossMoves ++ rightToLeftCrossMoves
+    possibleMoves
+      .map(game.board.getPieceOnPosition)
+      .filter(canMove(bishop, _, game.board))
+      .map(createMoveOrCapture(bishop, BishopType, _))
+  }
+
+  def getAllPossibleMovesForKnight(knight: Knight, game: Game): Stream[Move] = {
+    val possibleMoves = for {
+      a <- Stream((1, 2), (2, 1))
+      b <- Stream((1, 1), (1, -1), (-1, 1), (-1, -1))
+    } yield (a._1 * b._1, a._2 * b._2)
+    possibleMoves
+      .flatMap { case (x, y) => Position.createPiecePosition(x, y).map(game.board.getPieceOnPosition) }
+      .filter(canMove(knight, _, game.board))
+      .map(createMoveOrCapture(knight, KnightType, _))
+  }
+
+  def getAllPossibleMovesForKing(king: King, game: Game): Stream[Move] =
+  allPiecesAround(king, game.board)
+    .toStream
+    .filter(canMove(king, _, game.board))
+    .map(createMoveOrCapture(king, KingType, _))
+
+  def getAllPossibleMovesForQueen(queen: Queen, game: Game): Stream[Move] =
+    getAllPossibleMovesForBishop(queen, game) ++ getAllPossibleMovesForRook(queen, game)
+
+  private def createMoveOrCapture(piece: ChessPiece, pieceType: PieceType, otherChessPiece: ChessPiece): Move = {
+    if (otherChessPiece.isEmpty) {
+      BigPieceMove(KnightType, Some(piece.position.y), Some(piece.position.x), otherChessPiece.position.y, otherChessPiece.position.x)
+    } else {
+      BigPieceCapture(KnightType, Some(piece.position.y), Some(piece.position.x), otherChessPiece.position.y, otherChessPiece.position.x)
+    }
+  }
+
+  def getAllPossibleMovesFor(game: Game, chessPiece: ChessPiece): Stream[Move] = chessPiece match {
+    case pawn: Pawn     => getAllPosibbleMovesForPawn(pawn, game)
+    case rook: Rook     => getAllPossibleMovesForRook(rook, game)
+    case bishop: Bishop => getAllPossibleMovesForBishop(bishop, game)
+    case knight: Knight => getAllPossibleMovesForKnight(knight, game)
+    case king: King     => getAllPossibleMovesForKing(king, game)
+    case queen: Queen   => getAllPossibleMovesForQueen(queen, game)
+    case _              => Stream.empty
+  }
+
 
   def canKingGoAnywhere(board: ChessBoard, team: Team): Boolean = (for {
     king <- board.getKing(team).headOption

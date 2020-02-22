@@ -21,6 +21,27 @@ class GameStateTest extends Specification {
       }
     }
 
+    "state that game is drawn when one team has nowhere to move" in {
+      val board = ChessBoard(Map())
+      val setupBoard = board
+        .put(Queen(PiecePosition(3, 1), White), PiecePosition(3, 1))
+        .put(King(PiecePosition(4, 6), White, moved = true), PiecePosition(4, 6))
+        .put(King(PiecePosition(1, 8), Black, moved = true), PiecePosition(1, 8))
+      val game = Game(setupBoard, White, Ongoing)
+      val queenMove = BigPieceMove(QueenType, None, None, 7, 3)
+
+      val gameAfterMove = TestGame.playMoves(List(queenMove), game)
+
+      gameAfterMove match {
+        case Left(value) =>
+          println(value)
+          false
+        case Right(finalGameState) =>
+          finalGameState.gameState == Draw
+      }
+
+    }
+
     "state that white big castling is impossible if the rook has already moved" in {
       val (gameState, moves) = createCastlingSequenceRookMoves(White, big = true)
 
