@@ -11,7 +11,6 @@ class GameStateTest extends Specification {
       PortableGameNotationParser.parsePng(s) match {
         case Right(value) => {
           val game = TestGame.play(value.moves.map(_._1))
-          ConsoleGame.putCurrentState(game).unsafeRunSync()
           game.finished
         }
         case Left(_) => false

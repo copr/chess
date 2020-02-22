@@ -12,9 +12,11 @@ case class GameState(board: ChessBoard, finished: Boolean)
 
 
 object GameState {
+  type Result[A] = Either[IllegalMoveReason, A]
+  type MoveResult = Result[GameState]
+  type PieceSearchResult = Result[ChessPiece]
 
-
-  def move(move: Move, team: Team, game: GameState): Either[String, GameState] = {
+  def move(move: Move, team: Team, game: GameState): MoveResult = {
     val cleareEnpasantableState = clearEnpasantable(game, team)
     val stateAfterMove = move match {
       case SmallCastling        => smallCastling(cleareEnpasantableState, team)
@@ -27,21 +29,21 @@ object GameState {
     stateAfterMove.map(gs => isCheckMate(gs, team))
   }
 
-  def bigCastling(gameState: GameState, team: Team): scala.Either[String, GameState] = for {
+  def bigCastling(gameState: GameState, team: Team): MoveResult = for {
     king <- gameState.board
       .getKing(team)
       .headOption
-      .toRight("Couldn't find the king")
-      .filterOrElse(!_.moved, "King has already moved")
+      .toRight(CouldNotFindThePiece(KingType))
+      .filterOrElse(!_.moved, CastlingIllegal("King has already moved"))
     xPos = if (team == White) 1 else 8
     rook <- gameState.board
       .getRooks(team)
       .find(x => x.position.y.value == 1 && x.position.x.value == xPos)
-      .toRight("Rook is not in the right place")
-      .filterOrElse(!_.moved, "Rook has already moved")
-    newKingsPosition <- Position.createPiecePosition(xPos, 3).toRight("This should not be possible")
-    newRooksPosition <- Position.createPiecePosition(xPos, 4).toRight("This should not be possible")
-    rooksGoThrouPos  <- Position.createPiecePosition(xPos, 2).toRight("This should not be possible")
+      .toRight(CastlingIllegal("Rook is not in the right position"))
+      .filterOrElse(!_.moved, CastlingIllegal("Rook has already moved"))
+    newKingsPosition <- Position.createPiecePosition(xPos, 3).toRight(LogicError)
+    newRooksPosition <- Position.createPiecePosition(xPos, 4).toRight(LogicError)
+    rooksGoThrouPos  <- Position.createPiecePosition(xPos, 2).toRight(LogicError)
     isKingsPositionFree = gameState.board.getPieceOnPosition(newKingsPosition).isInstanceOf[Empty]
     isRooksPositionFree = gameState.board.getPieceOnPosition(newRooksPosition).isInstanceOf[Empty]
     isRooksGoThrouhFree = gameState.board.getPieceOnPosition(rooksGoThrouPos).isInstanceOf[Empty]
@@ -54,24 +56,24 @@ object GameState {
         finished = false
       ).asRight
     } else {
-      "Castling is not poosible".asLeft
+      CastlingIllegal("King would be checked by castling or Rook can't move to position").asLeft
     }
   } yield newState
 
-  def smallCastling(gameState: GameState, team: Team): Either[String, GameState] = for {
+  def smallCastling(gameState: GameState, team: Team): MoveResult = for {
     king <- gameState.board
       .getKing(team)
       .headOption
-      .toRight("Couldn't find the king")
-      .filterOrElse(!_.moved, "King has already moved")
+      .toRight(CouldNotFindThePiece(KingType))
+      .filterOrElse(!_.moved, CastlingIllegal("King has already moved"))
     xPos = if (team == White) 1 else 8
     rook <- gameState.board
       .getRooks(team)
       .find(x => x.position.y.value == 8 && x.position.x.value == xPos)
-      .toRight("Rook is not in the right place")
-      .filterOrElse(!_.moved, "Rook has already moved")
-    newKingsPosition <- Position.createPiecePosition(xPos, 7).toRight("This should not be possible")
-    newRooksPosition <- Position.createPiecePosition(xPos, 6).toRight("This should not be possible")
+      .toRight(CastlingIllegal("Rook is not in the right place"))
+      .filterOrElse(!_.moved, CastlingIllegal("Rook has already moved"))
+    newKingsPosition <- Position.createPiecePosition(xPos, 7).toRight(LogicError)
+    newRooksPosition <- Position.createPiecePosition(xPos, 6).toRight(LogicError)
     isKingsPositionFree = gameState.board.getPieceOnPosition(newKingsPosition).isInstanceOf[Empty]
     isRooksPositionFree = gameState.board.getPieceOnPosition(newRooksPosition).isInstanceOf[Empty]
     canKingBeChecked = isCheck(gameState.board.put(king.copy(position = newKingsPosition), newKingsPosition).remove(king), team) ||
@@ -83,7 +85,7 @@ object GameState {
         finished = false
       ).asRight
     } else {
-      "Castling is not poosible".asLeft
+      CastlingIllegal("King could be checked").asLeft
     }
   } yield newState
 
@@ -97,70 +99,70 @@ object GameState {
     GameState(newBoard, finished = false)
   }
 
-  def bigPieceCapture(bigPieceCapture: BigPieceCapture, team: Team, gameState: GameState): Either[String, GameState] = {
+  def bigPieceCapture(bigPieceCapture: BigPieceCapture, team: Team, gameState: GameState): MoveResult = {
     val otherPiecePosition = PiecePosition(bigPieceCapture.captureRank, bigPieceCapture.captureFile)
     val pieces = gameState.board
       .getPieces(bigPieceCapture.piece, team)
       .filter(p => canMoveToPosition(p, otherPiecePosition, gameState.board))
     for {
       piece <- getTheRightPiece(bigPieceCapture.file, bigPieceCapture.rank, pieces)
-      newState <- GameState(gameState.board.move(piece, otherPiecePosition), finished = false).asRight[String]
+      newState <- GameState(gameState.board.move(piece, otherPiecePosition), finished = false).asRight[IllegalMoveReason]
     } yield newState
   }
 
-  def bigPieceMove(bigPieceMove: BigPieceMove, team: Team, gameState: GameState): Either[String, GameState] = {
+  def bigPieceMove(bigPieceMove: BigPieceMove, team: Team, gameState: GameState): MoveResult = {
     val newPosition = PiecePosition(bigPieceMove.toRank, bigPieceMove.toFile)
     val pieces = gameState.board
       .getPieces(bigPieceMove.piece, team)
       .filter(p => canMoveToPosition(p, newPosition, gameState.board))
     for {
       piece <- getTheRightPiece(bigPieceMove.file, bigPieceMove.rank, pieces)
-      newState <- GameState(gameState.board.move(piece, newPosition), finished = false).asRight[String]
+      newState <- GameState(gameState.board.move(piece, newPosition), finished = false).asRight[IllegalMoveReason]
     } yield newState
   }
 
-  private def getTheRightPiece(file: Option[Position.PositionY], rank: Option[Position.PositionX], pieces: Vector[ChessPiece]): Either[String, ChessPiece] = {
+  private def getTheRightPiece(file: Option[Position.PositionY], rank: Option[Position.PositionX], pieces: Vector[ChessPiece]): PieceSearchResult = {
     getPiece(pieces) <+> getPieceByFile(pieces, file) <+> getPieceByRank(pieces, rank) <+>
       getPieceByFileAndRank(pieces, file, rank)
   }
 
-  private def getPiece(pieces: Vector[ChessPiece]): Either[String, ChessPiece] =
+  private def getPiece(pieces: Vector[ChessPiece]): PieceSearchResult =
     if (pieces.length == 1) {
-      pieces.headOption.toRight("Couldn't find the piece")
+      pieces.headOption.toRight(LogicError)
     } else {
-      "Couldn't find the piece".asLeft
+      PieceNotFound.asLeft
     }
 
-  private def getPieceByFile(pieces: Vector[ChessPiece], file: Option[Position.PositionY]): Either[String, ChessPiece] = {
+  private def getPieceByFile(pieces: Vector[ChessPiece], file: Option[Position.PositionY]): PieceSearchResult = {
     val pieceAccordingToFile = pieces.filter(cp => file.contains(cp.position.y))
     if (pieceAccordingToFile.length == 1) {
-      pieceAccordingToFile.headOption.toRight("Couldn't find the piece")
+      pieceAccordingToFile.headOption.toRight(LogicError)
     } else {
-      "Couldn't find the piece".asLeft
+      PieceNotFound.asLeft
     }
   }
 
-  private def getPieceByRank(pieces: Vector[ChessPiece], rank: Option[Position.PositionX]): Either[String, ChessPiece] = {
+  private def getPieceByRank(pieces: Vector[ChessPiece], rank: Option[Position.PositionX]): PieceSearchResult = {
     val pieceAccordingToRank = pieces.filter(cp => rank.contains(cp.position.x))
     if (pieceAccordingToRank.length == 1) {
-      pieceAccordingToRank.headOption.toRight("Couldn't find the piece")
+      pieceAccordingToRank.headOption.toRight(LogicError)
     } else {
-      "Couldn't find the piece".asLeft
+      PieceNotFound.asLeft
     }
   }
 
   private def getPieceByFileAndRank(pieces: Vector[ChessPiece], file: Option[Position.PositionY],
-                                    rank: Option[Position.PositionX]): Either[String, ChessPiece] = {
+                                    rank: Option[Position.PositionX]): PieceSearchResult = {
     val pieceAccordingToFileAndRank =
       pieces.filter(cp => file.contains(cp.position.y) && rank.contains(cp.position.x))
     if (pieceAccordingToFileAndRank.length == 1) {
-      pieceAccordingToFileAndRank.headOption.toRight("Couldn't find the piece")
+      pieceAccordingToFileAndRank.headOption.toRight(LogicError)
     } else {
-      "Notation doesn't specify the piece to capture with correctly".asLeft
+      PieceNotFound.asLeft
     }
   }
 
-  def pawnCapture(pawnCapture: PawnCapture, team: Team, game: GameState): Either[String, GameState] = {
+  def pawnCapture(pawnCapture: PawnCapture, team: Team, game: GameState): MoveResult = {
     val pawns = game.board.getPawnsInFile(pawnCapture.file, team)
     val otherPiecePosition = PiecePosition(pawnCapture.captureRank, pawnCapture.captureFile)
     val legiblePawns = pawns.filter(p => {
@@ -168,37 +170,37 @@ object GameState {
     })
     if (legiblePawns.length == 1 && pawnCapture.captureRank.value == 8) {
       for {
-        pawn <- legiblePawns.headOption.toRight("No pawn found")
-        newPiece <- pawnCapture.promoteTo.toRight("No piece to promote to")
+        pawn <- legiblePawns.headOption.toRight(LogicError)
+        newPiece <- pawnCapture.promoteTo.toRight(PromotionPieceNotSpecified)
                                          .map(pt => ChessPiece.create(pt, otherPiecePosition, team))
         newBoard = game.board.remove(pawn).put(newPiece, otherPiecePosition)
       } yield GameState(newBoard, finished = false)
     } else if (legiblePawns.length == 1) {
       val enpassant = for {
-        pawn <- legiblePawns.headOption.toRight("No pawn found")
+        pawn <- legiblePawns.headOption.toRight(CouldNotFindThePiece(PawnType))
         newState <- enpassantCapture(pawn.asInstanceOf[Pawn], team, game)
       } yield newState
       val normal = for {
-        pawn <- legiblePawns.headOption.toRight("No pawn found")
+        pawn <- legiblePawns.headOption.toRight(CouldNotFindThePiece(PawnType))
         newPawn = Pawn(otherPiecePosition, pawn.team, enpasantable = false)
         newBoard = game.board.remove(pawn).put(newPawn, otherPiecePosition)
       } yield GameState(newBoard, finished = false)
       enpassant <+> normal
     } else {
-      "Move not allowed".asLeft
+      MoveNotAllowed.asLeft
     }
   }
 
-  private def enpassantCapture(pawn: Pawn, team: Team, gameState: GameState): Either[String, GameState] = for {
-      potentialPosition <- Position.subtractMovesSafe(pawn.position, 1, 0).toRight("Move doesn't make sense")
+  private def enpassantCapture(pawn: Pawn, team: Team, gameState: GameState): MoveResult = for {
+      potentialPosition <- Position.subtractMovesSafe(pawn.position, 1, 0).toRight(MoveNotAllowed)
       pawnToTake <- gameState.board.getPawns(team.getOtherTeam)
                                    .find(p => p.position == potentialPosition && p.enpasantable)
-                                   .toRight("There is not pawn, or enpassant is not applicable")
+                                   .toRight(EnPassantInapplicable)
     } yield GameState(gameState.board.remove(pawnToTake)
     .put(Pawn(potentialPosition, pawn.team, enpasantable = false), potentialPosition)
     .remove(pawn), finished = false)
 
-  def pawnMove(pawnMove: PawnMove, team: Team, game: GameState): Either[String, GameState] = {
+  def pawnMove(pawnMove: PawnMove, team: Team, game: GameState): MoveResult = {
     val pawns = game.board.getPawnsInFile(pawnMove.file, team)
     val positionToMoveTo = PiecePosition(pawnMove.toRank, pawnMove.file)
     val legiblePawns = pawns.filter(p => {
@@ -206,14 +208,14 @@ object GameState {
     })
     if (positionToMoveTo.x.value == 8 && legiblePawns.length == 1) {
       for {
-        pawn <- legiblePawns.headOption.toRight("No pawn found")
-        newPiece <- pawnMove.promoteTo.toRight("No piece to promote to")
+        pawn <- legiblePawns.headOption.toRight(CouldNotFindThePiece(PawnType))
+        newPiece <- pawnMove.promoteTo.toRight(PromotionPieceNotSpecified)
                                       .map(pt => ChessPiece.create(pt, positionToMoveTo, team))
         newBoard = game.board.remove(pawn).put(newPiece, positionToMoveTo)
       } yield GameState(newBoard, finished = false)
     } else if (legiblePawns.length == 1) {
       for {
-        pawn <- legiblePawns.headOption.toRight("No pawn found")
+        pawn <- legiblePawns.headOption.toRight(CouldNotFindThePiece(PawnType))
         newPawn = if (pawn.position.x.value == 2 && positionToMoveTo.x.value == 4 && team == White ||
         pawn.position.x.value == 7 && positionToMoveTo.x.value == 5 && team == Black) {
           Pawn(positionToMoveTo, team, enpasantable = true)
@@ -222,7 +224,7 @@ object GameState {
         }
       } yield GameState(game.board.put(newPawn, positionToMoveTo).remove(pawn), finished = false)
     } else {
-      "Move not allowed".asLeft
+      MoveNotAllowed.asLeft
     }
   }
 

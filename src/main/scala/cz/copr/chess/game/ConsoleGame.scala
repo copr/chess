@@ -36,7 +36,7 @@ object ConsoleGame {
     _          <- EitherT.liftF[IO, String, Unit](putStrLn("State your move:"))
     moveString <- EitherT.liftF[IO, String, String](readLn)
     move       <- EitherT[IO, String, Move](NotationParser.parseMove(moveString).pure[IO])
-    newState   <- EitherT[IO, String, GameState](GameState.move(move, team, gameState).pure[IO])
+    newState   <- EitherT[IO, String, GameState](GameState.move(move, team, gameState).leftMap(_.toString).pure[IO])
   } yield (newState, team.getOtherTeam)
 
   def putCurrentState(state: GameState): IO[Unit] = {
