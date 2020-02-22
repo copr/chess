@@ -12,9 +12,9 @@ case class GameState(board: ChessBoard, team: Team, finished: Boolean)
 
 
 object GameState {
-  type Result[A] = Either[IllegalMoveReason, A]
+  private type Result[A] = Either[IllegalMoveReason, A]
   type MoveResult = Result[GameState]
-  type PieceSearchResult = Result[ChessPiece]
+  private type PieceSearchResult = Result[ChessPiece]
 
   def move(move: Move, game: GameState): MoveResult = {
     val cleareEnpasantableState = clearEnpasantable(game)
@@ -207,8 +207,9 @@ object GameState {
     val legiblePawns = pawns.filter(p => {
       canMoveToPosition(p, positionToMoveTo, gameState.board)
     })
+    val lastRow = if (gameState.team == White) 8 else 1
     // promotion
-    if (positionToMoveTo.x.value == 8 && legiblePawns.length == 1) {
+    if (positionToMoveTo.x.value == lastRow && legiblePawns.length == 1) {
       for {
         pawn <- legiblePawns.headOption.toRight(CouldNotFindThePiece(PawnType))
         newPiece <- pawnMove.promoteTo.toRight(PromotionPieceNotSpecified)

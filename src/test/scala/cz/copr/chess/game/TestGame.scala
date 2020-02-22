@@ -1,5 +1,7 @@
 package cz.copr.chess.game
 
+import cats.implicits._
+
 object TestGame {
   def play(moves: List[Move]): GameState = {
     val z = GameState.createInitialState
@@ -9,5 +11,13 @@ object TestGame {
       }
     }
   }
+
+  def playMoves(moves: List[Move], gameState: GameState): GameState.MoveResult =
+    moves.foldLeft(gameState.asRight[IllegalMoveReason]) { case (game, move) => for {
+        oldGame <- game
+        newGame <- GameState.move(move, oldGame)
+      } yield newGame
+    }
+
 
 }

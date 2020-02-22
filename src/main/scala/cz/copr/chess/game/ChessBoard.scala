@@ -41,11 +41,11 @@ case class ChessBoard(board: Board) {
     board.values.flatMap(row => row.values).toVector
 
   def move(chessPiece: ChessPiece, position: PiecePosition): ChessBoard = chessPiece match {
-    case k: King => this.remove(chessPiece).put(k.copy(position = position), position)
+    case k: King => this.remove(chessPiece).put(k.copy(position = position, moved = true), position)
     case k: Bishop => this.remove(chessPiece).put(k.copy(position = position), position)
     case k: Knight => this.remove(chessPiece).put(k.copy(position = position), position)
     case k: Queen => this.remove(chessPiece).put(k.copy(position = position), position)
-    case k: Rook => this.remove(chessPiece).put(k.copy(position = position), position)
+    case k: Rook => this.remove(chessPiece).put(k.copy(position = position, moved = true), position)
     case k: Pawn => this.remove(chessPiece).put(k.copy(position = position), position)
     case  _ => this
   }
