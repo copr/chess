@@ -8,36 +8,36 @@ import cats.effect.Console.io._
 
 object ConsoleGame {
   def main(args: Array[String]): Unit = {
-    program(GameState.createInitialState, White).unsafeRunSync()
+    program(GameState.createInitialState).unsafeRunSync()
   }
 
-  def program(gameState: GameState, team: Team): IO[Unit] = for {
-    newState <- turn(gameState, team).value
+  def program(gameState: GameState): IO[Unit] = for {
+    newState <- turn(gameState).value
     _ <- newState match {
-      case Right(tup) => if (tup._1.finished) {
+      case Right(gameState) => if (gameState.finished) {
         for {
-          _ <- putCurrentState(tup._1)
+          _ <- putCurrentState(gameState)
           _ <- putStrLn("Timto konci bal")
         } yield ()
       } else {
-        program(tup._1, team.getOtherTeam)
+        program(gameState)
       }
       case Left(s) => for {
         _ <- putStrLn(s)
-        _ <- program(gameState, team)
+        _ <- program(gameState)
       } yield ()
     }
   } yield ()
 
-  def turn(gameState: GameState, team: Team): EitherT[IO, String, (GameState, Team)] = for {
-    _          <- EitherT.liftF[IO, String, Unit](putStrLn("Current team " + team.toString))
+  def turn(gameState: GameState): EitherT[IO, String, GameState] = for {
+    _          <- EitherT.liftF[IO, String, Unit](putStrLn("Current team " + gameState.team.toString))
     _          <- EitherT.liftF[IO, String, Unit](putStrLn("Current state:"))
     _          <- EitherT.liftF[IO, String, Unit](putCurrentState(gameState))
     _          <- EitherT.liftF[IO, String, Unit](putStrLn("State your move:"))
     moveString <- EitherT.liftF[IO, String, String](readLn)
     move       <- EitherT[IO, String, Move](NotationParser.parseMove(moveString).pure[IO])
-    newState   <- EitherT[IO, String, GameState](GameState.move(move, team, gameState).leftMap(_.toString).pure[IO])
-  } yield (newState, team.getOtherTeam)
+    newState   <- EitherT[IO, String, GameState](GameState.move(move, gameState).leftMap(_.toString).pure[IO])
+  } yield newState.copy(team = newState.team.getOtherTeam)
 
   def putCurrentState(state: GameState): IO[Unit] = {
     val board = state.board
