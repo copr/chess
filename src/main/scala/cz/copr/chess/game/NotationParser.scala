@@ -1,6 +1,5 @@
 package cz.copr.chess.game
 
-import cats._
 import cats.implicits._
 import cz.copr.chess.game.Position.{PositionX, PositionY}
 

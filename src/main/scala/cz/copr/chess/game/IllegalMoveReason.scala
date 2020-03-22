@@ -1,10 +1,12 @@
 package cz.copr.chess.game
 
+import cz.copr.chess.game.Position.{PositionX, PositionY}
+
 sealed trait IllegalMoveReason
 
 final case class CouldNotFindThePiece(pieceType: PieceType) extends IllegalMoveReason
 final case class AmbiguousPieceDefinition(pieceType: PieceType) extends IllegalMoveReason
-final case class PieceNotFound(pieceType: PieceType) extends IllegalMoveReason
+final case class PieceNotFound(pieceType: PieceType, rank: Option[PositionX], file: Option[PositionY], team: Team) extends IllegalMoveReason
 final case class CastlingIllegal(msg: String) extends IllegalMoveReason
 case object PieceNotFound extends IllegalMoveReason
 case object Check extends IllegalMoveReason

@@ -1,7 +1,6 @@
 package cz.copr.chess.game
 
 import cats.implicits._
-import cats.data.State
 import cz.copr.chess.game.ChessPiece._
 import cz.copr.chess.game.Game.Result
 import cz.copr.chess.game.Position.PiecePosition
@@ -100,6 +99,7 @@ object GameLogic {
       .filter(p => canMoveToPosition(p, otherPiecePosition, gameState.board))
     for {
       piece    <- getTheRightPiece(bigPieceCapture.file, bigPieceCapture.rank, pieces)
+        .leftMap(_ => PieceNotFound(bigPieceCapture.piece, bigPieceCapture.rank, bigPieceCapture.file, gameState.team))
       newState <- gameState.copy(board = gameState.board.move(piece, otherPiecePosition)).asRight[IllegalMoveReason]
     } yield newState
   }
@@ -111,6 +111,7 @@ object GameLogic {
       .filter(p => canMoveToPosition(p, newPosition, gameState.board))
     for {
       piece    <- getTheRightPiece(bigPieceMove.file, bigPieceMove.rank, pieces)
+        .leftMap(_ => PieceNotFound(bigPieceMove.piece, bigPieceMove.rank, bigPieceMove.file, gameState.team))
       newState <- gameState.copy(board = gameState.board.move(piece, newPosition)).asRight[IllegalMoveReason]
     } yield newState
   }
@@ -262,12 +263,32 @@ object GameLogic {
       gameState
     }
 
-  def isDraw(gs: Game): Game =
-    if (getAllPossibleMoves(gs).nonEmpty) {
-      gs
-    } else {
-      gs.copy(gameState = Draw)
+  def isDraw(game: Game): Game =
+    if (getAllPossibleMoves(game).isEmpty) {
+      game.copy(gameState = Draw)
+    } else if (!isEnoughMaterial(game)) {
+      game.copy(gameState = Draw)
+    } else{
+      game
     }
+
+  def isEnoughMaterial(game: Game): Boolean =
+    hasTeamEnoughMaterial(game, White) && hasTeamEnoughMaterial(game, Black)
+
+  def hasTeamEnoughMaterial(game: Game, team: Team): Boolean = {
+    val pieces = game.board.getAllTeamsPieces(team)
+    if (pieces.length == 1) {
+      false
+    } else if (pieces.length == 2) {
+      !pieces.exists {
+        case _: Bishop => true
+        case _: Knight => true
+        case _         => false
+      }
+    } else {
+      true
+    }
+  }
 
   def getAllPossibleMoves(game: Game): Stream[Move] =
     game.board.getAllTeamsPieces(game.team.getOtherTeam).toStream.flatMap {

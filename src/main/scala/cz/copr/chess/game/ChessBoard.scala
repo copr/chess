@@ -53,9 +53,17 @@ case class ChessBoard(board: Board) {
     case  _        => this
   }
 
+  // TODO: Je put potreba takhle? Nestaci putChessPiece?
   def put(chessPiece: ChessPiece, position: PiecePosition): ChessBoard = {
     val x = position.x.value
     val y = position.y.value
+    val newRow = board.getOrElse(x, Map()) + (y -> chessPiece)
+    ChessBoard(board + (x -> newRow))
+  }
+
+  def putChessPiece(chessPiece: ChessPiece): ChessBoard = {
+    val x = chessPiece.position.x.value
+    val y = chessPiece.position.y.value
     val newRow = board.getOrElse(x, Map()) + (y -> chessPiece)
     ChessBoard(board + (x -> newRow))
   }

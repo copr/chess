@@ -1,7 +1,6 @@
 package cz.copr.chess.game
 
 import cats.data.State
-import cz.copr.chess.game.GameLogic.Result
 import cz.copr.chess.game.Position.PiecePosition
 
 
