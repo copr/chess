@@ -1,10 +1,9 @@
 package cz.copr.chess.game
 
-import cats._
 import cats.data.EitherT
-import cats.implicits._
-import cats.effect.IO
 import cats.effect.Console.io._
+import cats.effect.IO
+import cats.implicits._
 
 object ConsoleGame {
   def main(args: Array[String]): Unit = {
@@ -36,7 +35,7 @@ object ConsoleGame {
     _          <- EitherT.liftF[IO, String, Unit](putStrLn("State your move:"))
     moveString <- EitherT.liftF[IO, String, String](readLn)
     move       <- EitherT[IO, String, Move](NotationParser.parseMove(moveString).pure[IO])
-    newState   <- EitherT[IO, String, Game](Game.move(move, gameState).leftMap(_.toString).pure[IO])
+    newState   <- EitherT[IO, String, Game](GameLogic.move(move, gameState).leftMap(_.toString).pure[IO])
   } yield newState.copy(team = newState.team.getOtherTeam)
 
   def putCurrentState(state: Game): IO[Unit] = {
