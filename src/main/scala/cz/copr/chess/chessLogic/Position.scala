@@ -1,4 +1,4 @@
-package cz.copr.chess.game
+package cz.copr.chess.chessLogic
 
 import eu.timepit.refined._
 import eu.timepit.refined.api.{RefType, Refined}

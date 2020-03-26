@@ -1,4 +1,4 @@
-package cz.copr.chess.game
+package cz.copr.chess.chessLogic
 
 import org.specs2.mutable.Specification
 

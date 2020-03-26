@@ -1,6 +1,6 @@
 package cz.copr.chess.portableGameNotation
 
-import cz.copr.chess.game.Move
+import cz.copr.chess.chessLogic.Move
 import cz.copr.chess.portableGameNotation.PortableGameNotation.{Comment, Event, Player, Site}
 
 

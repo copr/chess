@@ -1,9 +1,8 @@
-package cz.copr.chess.game
+package cz.copr.chess.chessLogic
 
-import cz.copr.chess.portableGameNotation.PortableGameNotationParser
+import cz.copr.chess.portableGameNotation.{NotationParser, PortableGameNotationParser}
 import eu.timepit.refined.auto._
 import org.specs2.mutable.Specification
-
 import Position._
 
 
@@ -16,7 +15,7 @@ class GameLogicTest extends Specification {
       PortableGameNotationParser.parsePng(s) match {
         case Right(value) =>
           val game = TestGame.playFromInitialState(value.moves.map(_._1))
-          game.gameState.isFinished
+          game.gameResult.isFinished
         case Left(_) => false
       }
     }
@@ -27,7 +26,7 @@ class GameLogicTest extends Specification {
         .put(Queen(PiecePosition(3, 1), White), PiecePosition(3, 1))
         .put(King(PiecePosition(4, 6), White, moved = true), PiecePosition(4, 6))
         .put(King(PiecePosition(1, 8), Black, moved = true), PiecePosition(1, 8))
-      val game = Game(setupBoard, White, Ongoing, List())
+      val game = ChessState(setupBoard, White, Ongoing, List())
       val queenMove = BigPieceMove(QueenType, None, None, 7, 3)
 
       val gameAfterMove = TestGame.doMoves(List(queenMove), game)
@@ -37,7 +36,7 @@ class GameLogicTest extends Specification {
           println(value)
           false
         case Right(finalGameState) =>
-          finalGameState.gameState == Draw
+          finalGameState.gameResult == Draw
       }
 
     }
@@ -193,15 +192,15 @@ class GameLogicTest extends Specification {
         .putChessPiece(Queen(createPiecePosition(4, 8).get, White))
         .putChessPiece(Queen(createPiecePosition(7, 7).get, Black))
         .putChessPiece(Knight(createPiecePosition(5, 3).get, White))
-      val game = Game(board, White, Ongoing, List())
-      TestGame.playFromState(moves, game).gameState == Draw
+      val game = ChessState(board, White, Ongoing, List())
+      TestGame.playFromState(moves, game).gameResult == Draw
     }
   }
 
-  def createCastlingSequenceKingMoves(team: Team, big: Boolean): (Game, List[Move]) = {
+  def createCastlingSequenceKingMoves(team: Team, big: Boolean): (ChessState, List[Move]) = {
     val (board, xPosition, newXPosition, _) = setupCastling(team, big)
 
-    val gameState = Game(board, team, gameState = Ongoing, List())
+    val gameState = ChessState(board, team, gameResult = Ongoing, List())
     val kingMove1 = BigPieceMove(KingType, None, None, 5, newXPosition)
     val kingMove2 = BigPieceMove(KingType, None, None, 5, xPosition)
     val castling  = if (big) BigCastling else SmallCastling
@@ -223,10 +222,10 @@ class GameLogicTest extends Specification {
     (board, xPosition, newXPosition, yPosition)
   }
 
-  private def createCastlingSequenceRookMoves(team: Team, big: Boolean): (Game, List[Move]) = {
+  private def createCastlingSequenceRookMoves(team: Team, big: Boolean): (ChessState, List[Move]) = {
     val (board, xPosition, newXPosition, yPosition) = setupCastling(team, big)
 
-    val gameState = Game(board, team, gameState = Ongoing, moves = List())
+    val gameState = ChessState(board, team, gameResult = Ongoing, moves = List())
     val rookMove1 = BigPieceMove(RookType, None, None, yPosition, newXPosition)
     val rookMove2 = BigPieceMove(RookType, None, None, yPosition, xPosition)
     val castling = if (big) BigCastling else SmallCastling

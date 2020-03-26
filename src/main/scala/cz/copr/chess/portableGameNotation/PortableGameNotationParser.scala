@@ -1,7 +1,7 @@
 package cz.copr.chess.portableGameNotation
 
 import cats.implicits._
-import cz.copr.chess.game.{Move, NotationParser}
+import cz.copr.chess.chessLogic.Move
 import cz.copr.chess.portableGameNotation.PortableGameNotation.{Comment, Event, Player, Site}
 
 import scala.util.parsing.combinator.RegexParsers

@@ -1,6 +1,6 @@
-package cz.copr.chess.game
+package cz.copr.chess.chessLogic
 
-import cz.copr.chess.game.Position.{PositionX, PositionY}
+import cz.copr.chess.chessLogic.Position.{PositionX, PositionY}
 
 sealed trait IllegalMoveReason
 

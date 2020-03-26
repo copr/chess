@@ -1,6 +1,6 @@
-package cz.copr.chess.game
+package cz.copr.chess.chessLogic
 
-import cz.copr.chess.game.Position.{PiecePosition, PositionX, PositionY}
+import cz.copr.chess.chessLogic.Position.{PiecePosition, PositionX, PositionY}
 
 sealed trait Move
 final case class BigPieceMove(piece: PieceType, file: Option[PositionY], rank: Option[PositionX], toFile: PositionY, toRank: PositionX) extends Move

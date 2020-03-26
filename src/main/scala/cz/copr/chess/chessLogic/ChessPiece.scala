@@ -1,6 +1,6 @@
-package cz.copr.chess.game
+package cz.copr.chess.chessLogic
 
-import cz.copr.chess.game.Position.{PiecePosition, addMove, subtractMoves}
+import cz.copr.chess.chessLogic.Position.{PiecePosition, addMove, subtractMoves}
 
 sealed trait ChessPiece {
   val position: PiecePosition

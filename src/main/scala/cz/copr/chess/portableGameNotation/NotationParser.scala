@@ -1,7 +1,9 @@
-package cz.copr.chess.game
+package cz.copr.chess.portableGameNotation
 
 import cats.implicits._
-import cz.copr.chess.game.Position.{PositionX, PositionY}
+
+import cz.copr.chess.chessLogic.Position.{PositionX, PositionY}
+import cz.copr.chess.chessLogic._
 
 import scala.util.parsing.combinator.RegexParsers
 

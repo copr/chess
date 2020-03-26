@@ -1,29 +1,29 @@
-package cz.copr.chess.game
+package cz.copr.chess.chessLogic
 
 import cats.data.State
-import cz.copr.chess.game.Position.PiecePosition
+import cz.copr.chess.chessLogic.Position.PiecePosition
 
 
-sealed trait GameState {
+sealed trait GameResult {
   def isFinished: Boolean = this match {
     case Ongoing => false
     case _       => true
   }
 }
 
-case object WhiteWon extends GameState
-case object BlackWon extends GameState
-case object Draw     extends GameState
-case object Ongoing  extends GameState
+case object WhiteWon extends GameResult
+case object BlackWon extends GameResult
+case object Draw     extends GameResult
+case object Ongoing  extends GameResult
 
-case class Game(board: ChessBoard, team: Team, gameState: GameState, moves: List[Move])
+case class ChessState(board: ChessBoard, team: Team, gameResult: GameResult, moves: List[Move])
 
-object Game {
+object ChessState {
   type Result[A] = Either[IllegalMoveReason, A]
-  type MoveResult = Result[Game]
+  type MoveResult = Result[ChessState]
 
 
-  def createInitialState: Game = {
+  def createInitialState: ChessState = {
     val init: ChessBoard = ChessBoard(Map())
     val addPieces = for {
       _ <- putPawns
@@ -33,7 +33,7 @@ object Game {
       _ <- putQueens
       _ <- putKings
     } yield ()
-    Game(addPieces.run(init).value._1, team = White, gameState = Ongoing, moves = List())
+    ChessState(addPieces.run(init).value._1, team = White, gameResult = Ongoing, moves = List())
   }
 
   def putPieces(columns: Vector[Int], row: Int)(f: (PiecePosition, Team) => ChessPiece): State[ChessBoard, Unit] = for {

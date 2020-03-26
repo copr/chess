@@ -1,7 +1,7 @@
-package cz.copr.chess.game
+package cz.copr.chess.chessLogic
 
-import cz.copr.chess.game.ChessBoard.Board
-import cz.copr.chess.game.Position.{PiecePosition, createPiecePosition}
+import cz.copr.chess.chessLogic.ChessBoard.Board
+import cz.copr.chess.chessLogic.Position.{PiecePosition, createPiecePosition}
 
 case class ChessBoard(board: Board) {
   def getPawnsInFile(file: Position.PositionY, team: Team): Vector[ChessPiece] =
