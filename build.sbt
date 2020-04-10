@@ -2,6 +2,7 @@ val Http4sVersion = "0.20.15"
 val CirceVersion = "0.11.1"
 val Specs2Version = "4.1.0"
 val LogbackVersion = "1.2.3"
+val catsRetryVersion = "1.1.0"
 
 lazy val root = (project in file("."))
   .settings(
@@ -22,6 +23,8 @@ lazy val root = (project in file("."))
       "io.estatico" %% "newtype" % "0.4.3",
       "eu.timepit" %% "refined" % "0.9.10",
       "com.github.cb372" %% "cats-retry" % "1.0.0",
+      "org.typelevel" %% "cats-free" % "2.1.1",
+      "com.github.cb372" %% "cats-retry" % catsRetryVersion
     ),
     addCompilerPlugin("org.typelevel" %% "kind-projector"     % "0.10.3"),
     addCompilerPlugin("com.olegpy"    %% "better-monadic-for" % "0.3.0")

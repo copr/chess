@@ -8,7 +8,6 @@ import cz.copr.chess.chessLogic.Position.PiecePosition
 object ChessLogic {
   private type PieceSearchResult = Result[ChessPiece]
 
-
   def move(move: Move, game: ChessState): ChessState.MoveResult = {
     val clearedEnpasantableState = clearEnpasantable(game)
     val stateAfterMove = move match {
