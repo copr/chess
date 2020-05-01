@@ -289,24 +289,24 @@ object ChessLogic {
     }
   }
 
-  def getAllPossibleMoves(game: ChessState): Stream[Move] =
-    game.board.getAllTeamsPieces(game.team.getOtherTeam).toStream.flatMap {
+  def getAllPossibleMoves(game: ChessState): LazyList[Move] =
+    game.board.getAllTeamsPieces(game.team.getOtherTeam).to(LazyList).flatMap {
       case p: Pawn   => getAllPosibbleMovesForPawn(p, game)
       case r: Rook   => getAllPossibleMovesForRook(r, game)
       case b: Bishop => getAllPossibleMovesForBishop(b, game)
       case n: Knight => getAllPossibleMovesForKnight(n, game)
       case q: Queen  => getAllPossibleMovesForQueen(q, game)
       case k: King   => getAllPossibleMovesForKing(k, game)
-      case _         => Stream.empty
+      case _         => LazyList.empty
     }
 
-  def getAllPosibbleMovesForPawn(pawn: Pawn, game: ChessState): Stream[Move] = {
-    val possibleMoves = Stream((1, 0), (2, 0))
+  def getAllPosibbleMovesForPawn(pawn: Pawn, game: ChessState): LazyList[Move] = {
+    val possibleMoves = LazyList((1, 0), (2, 0))
       .flatMap(tup => Position.addMove(pawn.position, tup._1, tup._2))
       .map(game.board.getPieceOnPosition)
       .filter(canPawnMove(pawn, _))
       .map(otherPiece => PawnMove(otherPiece.position.y, otherPiece.position.x, None))
-    val possibleCaptures = Stream((1, 1), (1, -1))
+    val possibleCaptures = LazyList((1, 1), (1, -1))
       .flatMap(tup => Position.addMove(pawn.position, tup._1, tup._2))
       .map(game.board.getPieceOnPosition)
       .filter(canPawnMove(pawn, _))
@@ -314,13 +314,13 @@ object ChessLogic {
     possibleMoves ++ possibleCaptures
   }
 
-  def getAllPossibleMovesForRook(rook: ChessPiece, game: ChessState): Stream[Move] = {
+  def getAllPossibleMovesForRook(rook: ChessPiece, game: ChessState): LazyList[Move] = {
     val movesInAColumn = for {
-      x  <- Stream.range(1, 8)
+      x  <- LazyList.range(1, 8)
       px <- Position.createPositionX(x)
     } yield PiecePosition(px, rook.position.y)
     val movesInARow = for {
-      y  <- Stream.range(1, 8)
+      y  <- LazyList.range(1, 8)
       py <- Position.createPositionY(y)
     } yield PiecePosition(rook.position.x, py)
     val possibleMoves = movesInAColumn ++ movesInARow
@@ -330,15 +330,15 @@ object ChessLogic {
       .map(createMoveOrCapture(rook, RookType, _))
   }
 
-  def getAllPossibleMovesForBishop(bishop: ChessPiece, game: ChessState): Stream[Move] = {
+  def getAllPossibleMovesForBishop(bishop: ChessPiece, game: ChessState): LazyList[Move] = {
     val leftToRightCrossMoves = for {
-      increment   <- Stream.range(1, 8)
+      increment   <- LazyList.range(1, 8)
       startPositionX = bishop.position.x.value - bishop.position.y.value + 1
       startPositionY = bishop.position.y.value - bishop.position.x.value + 1
       newPosition <- Position.createPiecePosition(startPositionX + increment, startPositionY + increment)
     } yield newPosition
     val rightToLeftCrossMoves = for {
-      increment   <- Stream.range(1, 8)
+      increment   <- LazyList.range(1, 8)
       startPositionX = bishop.position.x.value - bishop.position.y.value + 1
       startPositionY = bishop.position.y.value + bishop.position.x.value - 1
       newPosition <- Position.createPiecePosition(startPositionX + increment, startPositionY - increment)
@@ -350,10 +350,10 @@ object ChessLogic {
       .map(createMoveOrCapture(bishop, BishopType, _))
   }
 
-  def getAllPossibleMovesForKnight(knight: Knight, game: ChessState): Stream[Move] = {
+  def getAllPossibleMovesForKnight(knight: Knight, game: ChessState): LazyList[Move] = {
     val possibleMoves = for {
-      a <- Stream((1, 2), (2, 1))
-      b <- Stream((1, 1), (1, -1), (-1, 1), (-1, -1))
+      a <- LazyList((1, 2), (2, 1))
+      b <- LazyList((1, 1), (1, -1), (-1, 1), (-1, -1))
     } yield (a._1 * b._1, a._2 * b._2)
     possibleMoves
       .flatMap { case (x, y) => Position.createPiecePosition(x, y).map(game.board.getPieceOnPosition) }
@@ -361,13 +361,13 @@ object ChessLogic {
       .map(createMoveOrCapture(knight, KnightType, _))
   }
 
-  def getAllPossibleMovesForKing(king: King, game: ChessState): Stream[Move] =
+  def getAllPossibleMovesForKing(king: King, game: ChessState): LazyList[Move] =
   allPiecesAround(king, game.board)
-    .toStream
+    .to(LazyList)
     .filter(canMove(king, _, game.board))
     .map(createMoveOrCapture(king, KingType, _))
 
-  def getAllPossibleMovesForQueen(queen: Queen, game: ChessState): Stream[Move] =
+  def getAllPossibleMovesForQueen(queen: Queen, game: ChessState): LazyList[Move] =
     getAllPossibleMovesForBishop(queen, game) ++ getAllPossibleMovesForRook(queen, game)
 
   private def createMoveOrCapture(piece: ChessPiece, pieceType: PieceType, otherChessPiece: ChessPiece): Move = {
@@ -378,14 +378,14 @@ object ChessLogic {
     }
   }
 
-  def getAllPossibleMovesFor(game: ChessState, chessPiece: ChessPiece): Stream[Move] = chessPiece match {
+  def getAllPossibleMovesFor(game: ChessState, chessPiece: ChessPiece): LazyList[Move] = chessPiece match {
     case pawn: Pawn     => getAllPosibbleMovesForPawn(pawn, game)
     case rook: Rook     => getAllPossibleMovesForRook(rook, game)
     case bishop: Bishop => getAllPossibleMovesForBishop(bishop, game)
     case knight: Knight => getAllPossibleMovesForKnight(knight, game)
     case king: King     => getAllPossibleMovesForKing(king, game)
     case queen: Queen   => getAllPossibleMovesForQueen(queen, game)
-    case _              => Stream.empty
+    case _              => LazyList.empty
   }
 
 
