@@ -1,9 +1,11 @@
 package cz.copr.chess.server
 
+import cats.implicits._
 import cats.effect.Sync
 import cz.copr.chess.server.ChessRepo.MoveRequest
 import cz.copr.chess.server.GameState.GameId
 import cz.copr.chess.server.Player._
+import io.circe.Decoder.Result
 import io.circe._
 import io.circe.generic.auto._
 import io.circe.generic.semiauto._
@@ -11,35 +13,63 @@ import org.http4s.circe._
 import org.http4s.{ EntityDecoder, EntityEncoder }
 import org.joda.time.DateTime
 
-trait GameResult
-case object Player1Won extends GameResult
-case object Player2Won extends GameResult
-case object Draw       extends GameResult
-case object Ongoing    extends GameResult
-final case class Undecided(player1Result: GameResult, player2Result: GameResult) extends GameResult
+trait GameStatus
+case object WhiteWon extends  GameStatus
+case object BlackWon extends  GameStatus
+case object Draw     extends  GameStatus
+case object WhiteTurn extends GameStatus
+case object BlackTurn extends GameStatus
+final case class Undecided(whiteResult: GameStatus, blackResult: GameStatus) extends GameStatus
 
 case class GameState (
-  gameId: GameId,
-  playerId1: PlayerId,
-  playerId2: PlayerId,
-  gameResult: GameResult,
+  gameId:       GameId,
+  whitePlayer:  PlayerId,
+  blackPlayer:  PlayerId,
+  gameStatus:   GameStatus,
   lastMoveTime: Option[DateTime],
-  moves: List[MoveRequest]
+  moves:        List[MoveRequest]
 )
 
 object GameState {
   case class GameId(value: String) extends AnyVal
 
-  implicit val gameResultEncoder: Encoder[GameResult] = {
-    case Player1Won => Json.fromString("1-0")
-    case Player2Won => Json.fromString("0-1")
-    case Draw       => Json.fromString("1/2-1/2")
-    case Ongoing    => Json.fromString("-")
-    case Undecided(player1Result, player2Result) => Json
+  implicit val gameStatusEncoder: Encoder[GameStatus] = {
+    case WhiteWon  => Json.fromString("1-0")
+    case BlackWon  => Json.fromString("0-1")
+    case Draw      => Json.fromString("1/2-1/2")
+    case WhiteTurn => Json.fromString("white")
+    case BlackTurn => Json.fromString("black")
+    case Undecided(whiteResult, blackResult) => Json
       .fromFields(List(
-        "player1-result" -> gameResultEncoder.apply(player1Result),
-        "player2-result" -> gameResultEncoder.apply(player2Result)
+        "white-result" -> gameStatusEncoder.apply(whiteResult),
+        "black-result" -> gameStatusEncoder.apply(blackResult)
       ))
+  }
+
+  implicit val gameStatusDecoder: Decoder[GameStatus] = (c: HCursor) => {
+    val failure = DecodingFailure("Couldn't parse GameStatus", c.history)
+    c.value.fold(
+      failure.asLeft[GameStatus],
+      _ => failure.asLeft,
+      _ => failure.asLeft,
+      decodeGameStatusFromString(_).toRight(failure),
+      _ => failure.asLeft,
+      jsonObject => (for {
+        whiteResultString <- jsonObject("white-result")
+        blackResultString <- jsonObject("black-result")
+        whiteResult <- whiteResultString.asString.flatMap(decodeGameStatusFromString)
+        blackResult <- blackResultString.asString.flatMap(decodeGameStatusFromString)
+      } yield Undecided(whiteResult, blackResult)).toRight(failure)
+    )
+  }
+
+  def decodeGameStatusFromString(s: String): Option[GameStatus] = s match {
+    case "1-0"     => Some(WhiteWon)
+    case "0-1"     => Some(BlackWon)
+    case "1/2-1/2" => Some(Draw)
+    case "white"   => Some(WhiteTurn)
+    case "black"   => Some(BlackTurn)
+    case _         => None
   }
 
   implicit val gameIdDecoder: Decoder[GameId] = Decoder.decodeString.map(GameId)

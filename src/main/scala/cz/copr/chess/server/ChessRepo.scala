@@ -21,6 +21,7 @@ import monocle.function.all._
 import org.http4s.circe._
 import org.http4s.{ EntityDecoder, EntityEncoder }
 import org.joda.time.DateTime
+import GameState.gameStatusDecoder
 
 trait ChessRepo[F[_]] {
   def register(registrationRequest: RegistrationRequest): F[PlayerId]
@@ -28,6 +29,8 @@ trait ChessRepo[F[_]] {
   def startGame(request: NewGameRequest): F[GameId]
 
   def getGames(playerId: PlayerId): F[List[GameState]]
+
+  def getGame(gameId: GameId): F[GameState]
 
   def move(moveRequest: MoveRequest): F[Unit]
 }
@@ -44,12 +47,24 @@ object MemoryRepoState {
 
   val lastMoveTime = GenLens[GameState](_.lastMoveTime)
   def moves        = GenLens[GameState](_.moves)
+  val gameStatus   = GenLens[GameState](_.gameStatus)
 
   def setLastMoveTime(newMoveTime: DateTime)(gameState: GameState): GameState =
     lastMoveTime.set(Some(newMoveTime))(gameState)
 
   def addMove(newMove: MoveRequest)(gameState: GameState): GameState =
     moves.modify(_ ++ List(newMove))(gameState)
+
+  def updateGameStatus(gameStatusOpt: Option[GameStatus])(gameState: GameState): GameState = (for {
+    newGameStatus <- gameStatusOpt
+    currentStatus  = gameState.gameStatus
+    newGameState   = currentStatus match {
+      case WhiteTurn => gameStatus.set(newGameStatus)(gameState)
+      case BlackTurn => gameStatus.set(newGameStatus)(gameState)
+      case status if status == newGameStatus => gameState
+      case status    => gameStatus.set(Undecided(status, newGameStatus))(gameState)
+    }
+  } yield newGameState).getOrElse(gameState)
 
   def updateGameState(newMoveTime: DateTime, newMove: MoveRequest)(gameState: GameState): GameState = {
     val gameState1 = setLastMoveTime(newMoveTime)(gameState)
@@ -102,28 +117,31 @@ class MemoryRepo[F[_]](implicit
 
   def getGames(playerId: PlayerId): F[List[GameState]] = for {
     games <- S.get.map(_.gameStates.values.toList)
-  } yield games.filter(game => game.playerId1 == playerId || game.playerId2 == playerId)
+  } yield games.filter(game => game.whitePlayer == playerId || game.blackPlayer == playerId)
+
+  def getGame(gameId: GameId): F[GameState] = getGameFromState(gameId)
 
   def move(moveRequest: MoveRequest): F[Unit] = for {
-    gameState   <- getGame(moveRequest)
-    _           <- ensureCorrectOrder(gameState, moveRequest)
-    date        <- DateTime.now().pure[F]
-    newGameState = updateGameState(date, moveRequest)(gameState)
+    gameState    <- getGameFromState(moveRequest.gameId)
+    _            <- ensureGameOngoing(gameState)
+    date         <- DateTime.now().pure[F]
+    newGameState = updateGameState(date, moveRequest)(updateGameStatus(moveRequest.result)(gameState))
     _           <- S.modify(setGameState(newGameState))
   } yield ()
 
-  private def getGame(moveRequest: MoveRequest): F[GameState] = {
-    OptionT(S.get.map(getGameState(moveRequest.gameId)))
+  private def getGameFromState(gameId: GameId): F[GameState] =
+    OptionT(S.get.map(getGameState(gameId)))
       .toRight(new IllegalArgumentException("Game not found"))
       .rethrowT
-  }
 
-  private def ensureCorrectOrder(game: GameState, moveRequest: MoveRequest): F[Unit] =
-    if (game.moves.last.playerId == moveRequest.playerId) {
-      ME.raiseError(new IllegalArgumentException("It's the other player's turn"))
-    }else {
+  private def ensureGameOngoing(gameState: GameState): F[Unit] =
+    if (gameState.gameStatus == WhiteTurn || gameState.gameStatus == BlackTurn) {
       ().pure[F]
+    } else {
+      ME.raiseError(new IllegalArgumentException("Game already finished"))
     }
+
+
 
   private def playerFromRequest(registrationRequest: RegistrationRequest): F[Player] = for {
     playerId  <- UUID.randomUUID().pure[F].map(uuid => PlayerId(uuid.toString))
@@ -136,9 +154,9 @@ class MemoryRepo[F[_]](implicit
   private def gameStateFromGameRequest(newGameRequest: NewGameRequest): F[GameState] = for {
     gameId <- UUID.randomUUID().pure[F].map(uuid => GameId(uuid.toString))
   } yield GameState(gameId,
-    newGameRequest.player1Id,
-    newGameRequest.player2Id,
-    Ongoing,
+    newGameRequest.whitePlayer,
+    newGameRequest.blackPlayer,
+    WhiteTurn,
     None,
     List()
   )
@@ -164,14 +182,9 @@ object MemoryRepo {
 object ChessRepo {
   def apply[F[_]](implicit repo: ChessRepo[F]): ChessRepo[F] = repo
 
-  
-  sealed trait GameVariant
-  case object WhiteVsBlack extends GameVariant
-  case object BlackVsWhite extends GameVariant
+  case class NewGameRequest(whitePlayer: PlayerId, blackPlayer: PlayerId)
 
-  case class NewGameRequest(player1Id: PlayerId, player2Id: PlayerId, variant: GameVariant)
-
-  case class MoveRequest(playerId: PlayerId, gameId: GameId, move: Move)
+  case class MoveRequest(playerId: PlayerId, gameId: GameId, move: Move, result: Option[GameStatus])
 
   implicit def newGameRequestEntityDecoder[F[_] : Sync]: EntityDecoder[F, NewGameRequest] =
     jsonOf[F, NewGameRequest]
