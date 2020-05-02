@@ -1,10 +1,11 @@
 package cz.copr.chess.server
 
 import cats.effect.Sync
-import cz.copr.chess.chessLogic.Move
+import cz.copr.chess.server.ChessRepo.MoveRequest
 import cz.copr.chess.server.GameState.GameId
 import cz.copr.chess.server.Player._
 import io.circe._
+import io.circe.generic.auto._
 import io.circe.generic.semiauto._
 import org.http4s.circe._
 import org.http4s.{ EntityDecoder, EntityEncoder }
@@ -22,8 +23,8 @@ case class GameState (
   playerId1: PlayerId,
   playerId2: PlayerId,
   gameResult: GameResult,
-  lastMoveTime: DateTime,
-  moves: List[Move]
+  lastMoveTime: Option[DateTime],
+  moves: List[MoveRequest]
 )
 
 object GameState {

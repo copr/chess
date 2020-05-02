@@ -6,19 +6,21 @@ import cz.copr.chess.server.ChessRepo.{ MoveRequest, NewGameRequest, listEntityE
 import cz.copr.chess.server.Player._
 import org.http4s.HttpRoutes
 import org.http4s.dsl.Http4sDsl
+import RegistrationRequest.registrationRequestEntityDecoder
 
 
 object ChessRoutes {
 
-  def chessRoutes[F[_]: Sync](chessRepo: ChessRepo[F]): HttpRoutes[F] = {
+  def chessRoutes[F[_]: Sync : ChessRepo]: HttpRoutes[F] = {
     val dsl = new Http4sDsl[F]{}
+    val repo = ChessRepo[F]
     import dsl._
     HttpRoutes.of[F] {
       // vrat Id
       case req @ POST -> Root / "register" =>
         req
-          .as[Player]
-          .flatMap(player => chessRepo.register(player).attempt)
+          .as[RegistrationRequest]
+          .flatMap(player => repo.register(player).attempt)
           .flatMap {
             case Left(t) => BadRequest(t.getMessage)
             case Right(playerId) => Ok(playerId.value)
@@ -28,7 +30,7 @@ object ChessRoutes {
       case req @ POST -> Root / "start-game" =>
         req
           .as[NewGameRequest]
-          .flatMap(newGame => chessRepo.startGame(newGame).attempt)
+          .flatMap(newGame => repo.startGame(newGame).attempt)
           .flatMap {
             case Left(t) => BadRequest(t.getMessage)
             case Right(gameId) => Ok(gameId.value)
@@ -38,7 +40,7 @@ object ChessRoutes {
       case req @ GET -> Root / "check-games" =>
         req
           .as[PlayerId]
-          .flatMap(playerId => chessRepo.getGames(playerId).attempt)
+          .flatMap(playerId => repo.getGames(playerId).attempt)
           .flatMap {
             case Left(t) => BadRequest(t.getMessage)
             case Right(gameList) => Ok(gameList)
@@ -47,7 +49,7 @@ object ChessRoutes {
       case req @ POST -> Root / "move" =>
         req
           .as[MoveRequest]
-          .flatMap(moveRequest => chessRepo.move(moveRequest).attempt)
+          .flatMap(moveRequest => repo.move(moveRequest).attempt)
           .flatMap {
             case Left(t) => BadRequest(t.getMessage)
             case Right(_) => Ok()

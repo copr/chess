@@ -8,28 +8,13 @@ import org.http4s.circe._
 import org.http4s.{ EntityDecoder, EntityEncoder }
 
 
-sealed trait Player {
-  def nickname:  String
-  def firstName: Option[String]
-  def lastName:  Option[String]
-  def mail:      Option[String]
-}
-
-final case class PlayerWithoutId(
-  nickname:  String,
-  firstName: Option[String],
-  lastName:  Option[String],
-  mail:      Option[String]
-) extends Player
-
-final case class PlayerWithId(
+final case class Player(
   id:        PlayerId,
   nickname:  String,
   firstName: Option[String],
   lastName:  Option[String],
   mail:      Option[String]
-) extends Player
-
+)
 
 object Player {
   case class PlayerId(value: String) extends AnyVal
