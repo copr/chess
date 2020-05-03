@@ -44,8 +44,8 @@ object Game {
     } yield ()
   }
 
-  def main(args: Array[String]): Unit = {
-    val io = program.foldMap(interpreter)
-    io.unsafeRunSync()
-  }
+//  def main(args: Array[String]): Unit = {
+//    val io = program.foldMap(interpreter)
+//    io.unsafeRunSync()
+//  }
 }

@@ -6,14 +6,20 @@ import cz.copr.chess.server.ChessRepo.{ FinishGameRequest, MoveRequest, NewGameR
 import cz.copr.chess.server.Player._
 import org.http4s.HttpRoutes
 import org.http4s.dsl.Http4sDsl
+import io.circe.syntax._
 import RegistrationRequest.registrationRequestEntityDecoder
+import io.circe.Json
 
 
 object ChessRoutes {
 
-  def chessRoutes[F[_]: Sync : ChessRepo]: HttpRoutes[F] = {
+  object PlayerIdVar {
+    def unapply(str: String): Option[PlayerId] =
+      playerIdDecoder.decodeJson(Json.fromString(str)).toOption
+  }
+
+  def chessRoutes[F[_]: Sync](repo: ChessRepo[F]): HttpRoutes[F] = {
     val dsl = new Http4sDsl[F]{}
-    val repo = ChessRepo[F]
     import dsl._
     HttpRoutes.of[F] {
       // vrat Id
@@ -37,11 +43,11 @@ object ChessRoutes {
           }
 
       // vrat zacate hry
-      case req @ GET -> Root / "check-games" =>
-        req
-          .as[PlayerId]
-          .flatMap(playerId => repo.getGames(playerId).attempt)
-          .flatMap {
+      case GET -> Root / "check-games" / PlayerIdVar(playerId) =>
+          repo
+            .getGames(playerId)
+            .attempt
+            .flatMap {
             case Left(t) => BadRequest(t.getMessage)
             case Right(gameList) => Ok(gameList)
           }

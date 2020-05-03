@@ -189,23 +189,6 @@ class MemoryRepo[F[_]](implicit
   }
 }
 
-object MemoryRepo {
-
-  def main(args: Array[String]): Unit = {
-
-    val res = for {
-      ref <- Ref.of[IO, MemoryRepoState](MemoryRepoState(Map(), Map()))
-      out <- ref.runState(implicit monadState => {
-        new MemoryRepo[IO].register(RegistrationRequest("copr", None, None, None))
-      })
-      map <- ref.get
-      _   <- IO(println(map))
-    } yield out
-    println(res.unsafeRunSync())
-  }
-}
-
-
 object ChessRepo {
   def apply[F[_]](implicit repo: ChessRepo[F]): ChessRepo[F] = repo
 

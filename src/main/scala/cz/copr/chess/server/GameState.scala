@@ -62,7 +62,7 @@ object GameState {
   }
 
   implicit val gameIdDecoder: Decoder[GameId] = Decoder.decodeString.map(GameId)
-  implicit val gameIdEncoder: Encoder[GameId] = (id: GameId) => Json.fromString(id.toString)
+  implicit val gameIdEncoder: Encoder[GameId] = (id: GameId) => Json.fromString(id.value)
 
   implicit def gameIdEntityDecoder[F[_] : Sync]: EntityDecoder[F, GameId] = jsonOf[F, GameId]
   implicit def gameIdEntityEncoder[F[_] : Sync]: EntityEncoder[F, GameId] = jsonEncoderOf[F, GameId]

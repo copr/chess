@@ -7,9 +7,9 @@ import cats.implicits._
 import cz.copr.chess.portableGameNotation.NotationParser
 
 object ConsoleGame {
-  def main(args: Array[String]): Unit = {
-    program(ChessState.createInitialState).unsafeRunSync()
-  }
+//  def main(args: Array[String]): Unit = {
+//    program(ChessState.createInitialState).unsafeRunSync()
+//  }
 
   def program(gameState: ChessState): IO[Unit] = for {
     newState <- turn(gameState).value
