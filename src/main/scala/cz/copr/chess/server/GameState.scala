@@ -19,7 +19,6 @@ case object BlackWon extends  GameStatus
 case object Draw     extends  GameStatus
 case object WhiteTurn extends GameStatus
 case object BlackTurn extends GameStatus
-final case class Undecided(whiteResult: GameStatus, blackResult: GameStatus) extends GameStatus
 
 case class GameState (
   gameId:       GameId,
@@ -39,11 +38,6 @@ object GameState {
     case Draw      => Json.fromString("1/2-1/2")
     case WhiteTurn => Json.fromString("white")
     case BlackTurn => Json.fromString("black")
-    case Undecided(whiteResult, blackResult) => Json
-      .fromFields(List(
-        "white-result" -> gameStatusEncoder.apply(whiteResult),
-        "black-result" -> gameStatusEncoder.apply(blackResult)
-      ))
   }
 
   implicit val gameStatusDecoder: Decoder[GameStatus] = (c: HCursor) => {
@@ -54,12 +48,7 @@ object GameState {
       _ => failure.asLeft,
       decodeGameStatusFromString(_).toRight(failure),
       _ => failure.asLeft,
-      jsonObject => (for {
-        whiteResultString <- jsonObject("white-result")
-        blackResultString <- jsonObject("black-result")
-        whiteResult <- whiteResultString.asString.flatMap(decodeGameStatusFromString)
-        blackResult <- blackResultString.asString.flatMap(decodeGameStatusFromString)
-      } yield Undecided(whiteResult, blackResult)).toRight(failure)
+      _ => failure.asLeft
     )
   }
 

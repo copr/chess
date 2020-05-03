@@ -11,7 +11,7 @@ import cats.effect.concurrent.Ref
 import cats.mtl._
 import cats.mtl.implicits._
 import cz.copr.chess.chessLogic.Move
-import cz.copr.chess.server.ChessRepo.{ MoveRequest, NewGameRequest }
+import cz.copr.chess.server.ChessRepo.{ FinishGameRequest, MoveRequest, NewGameRequest }
 import cz.copr.chess.server.GameState.GameId
 import cz.copr.chess.server.Player.PlayerId
 import io.circe.Encoder
@@ -33,6 +33,8 @@ trait ChessRepo[F[_]] {
   def getGame(gameId: GameId): F[GameState]
 
   def move(moveRequest: MoveRequest): F[Unit]
+
+  def finish(finishGameRequest: FinishGameRequest): F[Unit]
 }
 
 trait IdGenerator[F[_]] {
@@ -55,20 +57,15 @@ object MemoryRepoState {
   def addMove(newMove: MoveRequest)(gameState: GameState): GameState =
     moves.modify(_ ++ List(newMove))(gameState)
 
-  def updateGameStatus(gameStatusOpt: Option[GameStatus])(gameState: GameState): GameState = (for {
-    newGameStatus <- gameStatusOpt
-    currentStatus  = gameState.gameStatus
-    newGameState   = currentStatus match {
-      case WhiteTurn => gameStatus.set(newGameStatus)(gameState)
-      case BlackTurn => gameStatus.set(newGameStatus)(gameState)
-      case status if status == newGameStatus => gameState
-      case status    => gameStatus.set(Undecided(status, newGameStatus))(gameState)
-    }
-  } yield newGameState).getOrElse(gameState)
-
   def updateGameState(newMoveTime: DateTime, newMove: MoveRequest)(gameState: GameState): GameState = {
+    // TODO: podivat se jak se to composituje spravne tema lensama
     val gameState1 = setLastMoveTime(newMoveTime)(gameState)
-    addMove(newMove)(gameState1)
+    val gameState2 = gameStatus.modify({
+      case WhiteTurn     => BlackTurn
+      case BlackTurn     => WhiteTurn
+      case s: GameStatus => s
+    })(gameState1)
+    addMove(newMove)(gameState2)
   }
 
 
@@ -84,6 +81,8 @@ object MemoryRepoState {
   def setGameState(gameState: GameState)(memoryRepoState: MemoryRepoState): MemoryRepoState =
     (gameStates composeLens at(gameState.gameId)).set(Some(gameState))(memoryRepoState)
 
+  def gameStateLens(gameId: GameId) =
+    (gameStates composeLens at(gameId))
 }
 
 case class RegistrationRequest(
@@ -98,7 +97,7 @@ object RegistrationRequest {
     jsonOf[F, RegistrationRequest]
 }
 
-
+// TODO: mozna predelat monad na sync?
 class MemoryRepo[F[_]](implicit
                        M: Monad[F],
                        ME: MonadError[F, Throwable],
@@ -124,9 +123,16 @@ class MemoryRepo[F[_]](implicit
   def move(moveRequest: MoveRequest): F[Unit] = for {
     gameState    <- getGameFromState(moveRequest.gameId)
     _            <- ensureGameOngoing(gameState)
+    _            <- ensureCorrectOrder(moveRequest)
     date         <- DateTime.now().pure[F]
-    newGameState = updateGameState(date, moveRequest)(updateGameStatus(moveRequest.result)(gameState))
-    _           <- S.modify(setGameState(newGameState))
+    newGameState  = updateGameState(date, moveRequest)(gameState)
+    _            <- S.modify(setGameState(newGameState))
+  } yield ()
+
+  def finish(finishGameRequest: FinishGameRequest): F[Unit] = for {
+    gameState        <- getGameFromState(finishGameRequest.gameId)
+    updatedGameState <- updateGameStatus(finishGameRequest, gameState)
+    _                <- S.modify(setGameState(updatedGameState))
   } yield ()
 
   private def getGameFromState(gameId: GameId): F[GameState] =
@@ -141,6 +147,14 @@ class MemoryRepo[F[_]](implicit
       ME.raiseError(new IllegalArgumentException("Game already finished"))
     }
 
+  private def ensureCorrectOrder(moveRequest: MoveRequest): F[Unit] = (for {
+    gameState <- OptionT.liftF[F, GameState](getGameFromState(moveRequest.gameId))
+    _         <- OptionT.fromOption[F](gameState.gameStatus match {
+      case WhiteTurn => Some(gameState.whitePlayer)
+      case BlackTurn => Some(gameState.blackPlayer)
+      case _         => None
+    }).ensure(new IllegalArgumentException(s"This is not player ${moveRequest.playerId} turn"))(_ == moveRequest.playerId)
+  } yield ()).getOrElse(ME.raiseError(new IllegalArgumentException(s"This is not player ${moveRequest.playerId} turn")))
 
 
   private def playerFromRequest(registrationRequest: RegistrationRequest): F[Player] = for {
@@ -160,6 +174,19 @@ class MemoryRepo[F[_]](implicit
     None,
     List()
   )
+
+  private def updateGameStatus(finishGameRequest: FinishGameRequest, gameState: GameState): F[GameState] = {
+    val newGameStatus = finishGameRequest.result
+    val currentStatus = gameState.gameStatus
+    currentStatus match {
+      case WhiteTurn => gameStatus.set(newGameStatus)(gameState).pure[F]
+      case BlackTurn => gameStatus.set(newGameStatus)(gameState).pure[F]
+      case status if status == newGameStatus => gameState.pure[F]
+      case _ => ME.raiseError[GameState](
+        new IllegalArgumentException("Result you are trying to set is different from the existing one")
+      )
+    }
+  }
 }
 
 object MemoryRepo {
@@ -184,13 +211,19 @@ object ChessRepo {
 
   case class NewGameRequest(whitePlayer: PlayerId, blackPlayer: PlayerId)
 
-  case class MoveRequest(playerId: PlayerId, gameId: GameId, move: Move, result: Option[GameStatus])
+  case class MoveRequest(playerId: PlayerId, gameId: GameId, move: Move)
+
+  // TODO: predelat GameStatus na neco omezenjsiho co povoluje jen WhiteWin, BlackWin a Draw
+  case class FinishGameRequest(playerId: PlayerId, gameId: GameId, result: GameStatus)
 
   implicit def newGameRequestEntityDecoder[F[_] : Sync]: EntityDecoder[F, NewGameRequest] =
     jsonOf[F, NewGameRequest]
 
   implicit def moveRequestEntityDecoder[F[_] : Sync]: EntityDecoder[F, MoveRequest] =
     jsonOf[F, MoveRequest]
+
+  implicit def finishGameRequestEntityDecoder[F[_] : Sync]: EntityDecoder[F, FinishGameRequest] =
+    jsonOf[F, FinishGameRequest]
 
   implicit def listEntityEncoder[F[_] : Sync, A](implicit E: Encoder[A]): EntityEncoder[F, List[A]] = jsonEncoderOf[F, List[A]]
 }

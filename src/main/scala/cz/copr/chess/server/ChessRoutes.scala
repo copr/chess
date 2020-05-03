@@ -2,7 +2,7 @@ package cz.copr.chess.server
 
 import cats.effect.Sync
 import cats.implicits._
-import cz.copr.chess.server.ChessRepo.{ MoveRequest, NewGameRequest, listEntityEncoder }
+import cz.copr.chess.server.ChessRepo.{ FinishGameRequest, MoveRequest, NewGameRequest, listEntityEncoder }
 import cz.copr.chess.server.Player._
 import org.http4s.HttpRoutes
 import org.http4s.dsl.Http4sDsl
@@ -46,14 +46,17 @@ object ChessRoutes {
             case Right(gameList) => Ok(gameList)
           }
 
-      case req @ POST -> Root / "move" =>
-        req
-          .as[MoveRequest]
-          .flatMap(moveRequest => repo.move(moveRequest).attempt)
-          .flatMap {
-            case Left(t) => BadRequest(t.getMessage)
-            case Right(_) => Ok()
-          }
+      case req @ POST -> Root / "play" =>
+        req.attemptAs[MoveRequest].value.flatMap {
+          case Right(moveRequest) => repo.move(moveRequest)
+          case Left(_) => req.as[FinishGameRequest].flatMap(finishGameRequest => repo.finish(finishGameRequest))
+        }
+        .attempt
+        .flatMap {
+          case Left(t) => BadRequest(t.getMessage)
+          case Right(gameList) => Ok(gameList)
+        }
+
 
     }
   }
