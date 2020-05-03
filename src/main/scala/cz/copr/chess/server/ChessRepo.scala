@@ -24,6 +24,8 @@ import org.joda.time.DateTime
 import GameState.gameStatusDecoder
 
 trait ChessRepo[F[_]] {
+  def getPlayers: F[List[Player]]
+
   def register(registrationRequest: RegistrationRequest): F[PlayerId]
 
   def startGame(request: NewGameRequest): F[GameId]
@@ -103,6 +105,10 @@ class MemoryRepo[F[_]](implicit
                        ME: MonadError[F, Throwable],
                        S: MonadState[F, MemoryRepoState]) extends ChessRepo[F] {
   import MemoryRepoState._
+
+  def getPlayers: F[List[Player]] = for {
+    state <- S.get
+  } yield playerMap.get(state).values.toList
 
   def register(registrationRequest: RegistrationRequest): F[PlayerId] = for {
     player <- playerFromRequest(registrationRequest)

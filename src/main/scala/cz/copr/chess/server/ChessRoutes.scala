@@ -6,10 +6,11 @@ import cz.copr.chess.server.ChessRepo.{ FinishGameRequest, MoveRequest, NewGameR
 import cz.copr.chess.server.Player._
 import org.http4s.HttpRoutes
 import org.http4s.dsl.Http4sDsl
+import io.circe.generic.auto._
 import io.circe.syntax._
 import RegistrationRequest.registrationRequestEntityDecoder
 import io.circe.Json
-
+import ChessRepo.listEntityEncoder
 
 object ChessRoutes {
 
@@ -63,7 +64,8 @@ object ChessRoutes {
           case Right(gameList) => Ok(gameList)
         }
 
-
+      case GET -> Root / "players" =>
+        Ok(repo.getPlayers)
     }
   }
 }
