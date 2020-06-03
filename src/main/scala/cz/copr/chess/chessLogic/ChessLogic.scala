@@ -301,12 +301,13 @@ object ChessLogic {
     }
 
   def getAllPosibbleMovesForPawn(pawn: Pawn, game: ChessState): LazyList[Move] = {
-    val possibleMoves = LazyList((1, 0), (2, 0))
+    val sign = if (pawn.team == White) 1 else -1
+    val possibleMoves = LazyList((sign * 1, 0), (sign * 2, 0))
       .flatMap(tup => Position.addMove(pawn.position, tup._1, tup._2))
       .map(game.board.getPieceOnPosition)
       .filter(canPawnMove(pawn, _))
       .map(otherPiece => PawnMove(otherPiece.position.y, otherPiece.position.x, None))
-    val possibleCaptures = LazyList((1, 1), (1, -1))
+    val possibleCaptures = LazyList((sign * 1, 1), (sign * 1, -1))
       .flatMap(tup => Position.addMove(pawn.position, tup._1, tup._2))
       .map(game.board.getPieceOnPosition)
       .filter(canPawnMove(pawn, _))
