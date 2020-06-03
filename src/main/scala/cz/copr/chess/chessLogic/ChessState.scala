@@ -16,7 +16,9 @@ case object BlackWon extends GameResult
 case object Draw     extends GameResult
 case object Ongoing  extends GameResult
 
-case class ChessState(board: ChessBoard, team: Team, gameResult: GameResult, moves: List[Move])
+case class ChessState(board: ChessBoard, team: Team, gameResult: GameResult, moves: List[Move]) {
+  def switchTeam: ChessState = this.copy(team = team.getOtherTeam)
+}
 
 object ChessState {
   type Result[A] = Either[IllegalMoveReason, A]
