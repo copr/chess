@@ -1,38 +1,42 @@
-package cz.copr.chess.inputOutput
+package cz.copr.chess.chessClient
 
+import cats.effect.{ Console, Sync }
 import cats.implicits._
-import cats.effect.IO
-import cats.effect.Console.io._
-import cats.~>
-import cz.copr.chess.chessLogic._
+import cz.copr.chess.chessLogic.{ Bishop, Black, ChessPiece, ChessState, Empty, King, Knight, Move, Nothing, Pawn, Position, Queen, Rook, Team, White }
 import cz.copr.chess.portableGameNotation.NotationParser
 
-object ConsoleInputOutputInterpreter extends (InputOutput  ~> IO) {
-  def apply[A](inputOutput: InputOutput[A]) = inputOutput match {
-    case PrintState(gameState: ChessState) => putCurrentState(gameState)
-    case GetMove(_: Team) => readMove
+
+object ConsoleClient {
+  def apply[F[_] : Sync](implicit C: Console[F]): ChessClient[F] = new ChessClient[F] {
+    def getMove(chesState: ChessState): F[Move] = for {
+      _    <- putCurrentState(chesState)
+      move <- readMove[F]
+    } yield move
+
+    def inform(msg: String): F[Unit] = C.putStrLn(msg)
   }
 
-  private def readMove: IO[Move] =  for {
-    _          <- putStrLn("State your move:")
-    moveString <- readLn
+
+  private def readMove[F[_] : Sync](implicit C: Console[F]): F[Move] =  for {
+    _          <- C.putStrLn("State your move:")
+    moveString <- C.readLn
     move       <- NotationParser.parseMove(moveString) match {
-      case Right(move) => IO.pure(move)
+      case Right(move) => move.pure[F]
       case Left(e)     => for {
-        _ <- putStrLn(e)
-        move <- readMove
+        _    <- C.putStrLn(e)
+        move <- readMove[F]
       } yield move
     }
   } yield move
 
-  private def putCurrentState(state: ChessState): IO[Unit] = {
+  private def putCurrentState[F[_] : Sync](state: ChessState)(implicit C: Console[F]): F[Unit] = {
     val board = state.board
     val piecePositions = 1 to 8 map (rowIndex => 1 to 8 flatMap(columnIndex => Position.createPiecePosition(rowIndex, columnIndex)))
     val pieces = piecePositions.toVector.map(row => row.toVector.map(pp => pieceToString(board.getPieceOnPosition(pp))))
     val piecesAndRows = pieces zip (1 to 8) map (tup => Vector(" " + tup._2.toString + " ") ++ tup._1)
     val columnTags = Vector("   ", " A ", " B ", " C ", " D ", " E ", " F ", " G ", " H ")
     val piecesAndRowsAndColumns = Vector(columnTags) ++ piecesAndRows
-    piecesAndRowsAndColumns.reverse.map(row => putStrLn(row.combineAll)).combineAll
+    piecesAndRowsAndColumns.reverse.map(row => C.putStrLn(row.combineAll)).sequence_
   }
 
   private def pieceToString(chessPiece: ChessPiece): String = chessPiece match {
