@@ -1,0 +1,51 @@
+# /register
+input: {
+    "nickname": <nickname>,
+    "firstName": Optional,
+    "lastName": Optional,
+    "email": Optional,
+}
+output: playerId
+
+# /start-game
+input: {
+    "whitePlayer": <playerId>,
+    "blackPlayer": <playerId>
+}
+output: gameId
+
+# /check-games/<playerId>
+output: [{
+    "gameId": <gameId>,
+    "whitePlayer": <playerId>,
+    "blackPlayer": <playerId>,
+    "gameStatus": "white"(jakoze je na rade bily) | "black" | "1-0" | "0-1" | "1/2-1/2",
+    "lastMoveTime": <miliseconds>
+    "moves": [{
+        "playerId": <playerId>,
+        "gameId": <gameId>,
+        "move": <move>
+    },
+    ...
+    ]
+  },
+  ...
+]
+
+# /play
+input: {
+    "playerId": <playerId>,
+    "gameId": <gameId>,``
+    bud   "move": <e4...>
+    anebo "result": "1-0" | "0-1" | "1/2-1/2"
+}
+
+# /players
+output: [{
+    "nickname": <nickname>,
+    "firstName": Optional,
+    "lastName": Optional,
+    "email": Optional,
+},
+...
+]
