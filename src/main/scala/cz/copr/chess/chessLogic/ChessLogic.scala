@@ -115,7 +115,7 @@ object ChessLogic {
     } yield newState
   }
 
-  private def getTheRightPiece(file: Option[Position.PositionY], rank: Option[Position.PositionX], pieces: Vector[ChessPiece]): PieceSearchResult = {
+  private def getTheRightPiece(file: Option[Position.Position], rank: Option[Position.Position], pieces: Vector[ChessPiece]): PieceSearchResult = {
     getPiece(pieces) orElse getPieceByFile(pieces, file) orElse getPieceByRank(pieces, rank) orElse
       getPieceByFileAndRank(pieces, file, rank)
   }
@@ -127,7 +127,7 @@ object ChessLogic {
       PieceNotFound.asLeft
     }
 
-  private def getPieceByFile(pieces: Vector[ChessPiece], file: Option[Position.PositionY]): PieceSearchResult = {
+  private def getPieceByFile(pieces: Vector[ChessPiece], file: Option[Position.Position]): PieceSearchResult = {
     val pieceAccordingToFile = pieces.filter(cp => file.contains(cp.position.y))
     if (pieceAccordingToFile.length == 1) {
       pieceAccordingToFile.headOption.toRight(LogicError)
@@ -136,7 +136,7 @@ object ChessLogic {
     }
   }
 
-  private def getPieceByRank(pieces: Vector[ChessPiece], rank: Option[Position.PositionX]): PieceSearchResult = {
+  private def getPieceByRank(pieces: Vector[ChessPiece], rank: Option[Position.Position]): PieceSearchResult = {
     val pieceAccordingToRank = pieces.filter(cp => rank.contains(cp.position.x))
     if (pieceAccordingToRank.length == 1) {
       pieceAccordingToRank.headOption.toRight(LogicError)
@@ -145,8 +145,8 @@ object ChessLogic {
     }
   }
 
-  private def getPieceByFileAndRank(pieces: Vector[ChessPiece], file: Option[Position.PositionY],
-                                    rank: Option[Position.PositionX]): PieceSearchResult = {
+  private def getPieceByFileAndRank(pieces: Vector[ChessPiece], file: Option[Position.Position],
+                                    rank: Option[Position.Position]): PieceSearchResult = {
     val pieceAccordingToFileAndRank =
       pieces.filter(cp => file.contains(cp.position.y) && rank.contains(cp.position.x))
     if (pieceAccordingToFileAndRank.length == 1) {
@@ -318,11 +318,11 @@ object ChessLogic {
   def getAllPossibleMovesForRook(rook: ChessPiece, game: ChessState): LazyList[Move] = {
     val movesInAColumn = for {
       x  <- LazyList.range(1, 8)
-      px <- Position.createPositionX(x)
+      px <- Position.createPosition(x)
     } yield PiecePosition(px, rook.position.y)
     val movesInARow = for {
       y  <- LazyList.range(1, 8)
-      py <- Position.createPositionY(y)
+      py <- Position.createPosition(y)
     } yield PiecePosition(rook.position.x, py)
     val possibleMoves = movesInAColumn ++ movesInARow
     possibleMoves

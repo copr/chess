@@ -208,11 +208,11 @@ class GameLogicTest extends Specification {
     (gameState, List(kingMove1, kingMove2, castling))
   }
 
-  private def setupCastling(team: Team, big: Boolean): (ChessBoard, PositionX, PositionX, PositionX) = {
-    val xPosition = createPositionX(if (team == White) 1 else 8).get
-    val yPosition = createPositionY(if (big) 1 else 8).get
+  private def setupCastling(team: Team, big: Boolean): (ChessBoard, Position, Position, Position) = {
+    val xPosition = createPosition(if (team == White) 1 else 8).get
+    val yPosition = createPosition(if (big) 1 else 8).get
     val xIncrement = if (team == White) 1 else -1
-    val newXPosition = Position.createPositionX(xPosition + xIncrement).get
+    val newXPosition = Position.createPosition(xPosition + xIncrement).get
 
     val rookPosition = PiecePosition(xPosition, yPosition)
     val kingPosition = PiecePosition(xPosition, 5)

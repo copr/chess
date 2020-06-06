@@ -1,11 +1,10 @@
 package cz.copr.chess.portableGameNotation
 
-import cats.implicits._
-
-import cz.copr.chess.chessLogic.Position.{PositionX, PositionY}
-import cz.copr.chess.chessLogic._
-
 import scala.util.parsing.combinator.RegexParsers
+
+import cats.implicits._
+import cz.copr.chess.chessLogic.Position.Position
+import cz.copr.chess.chessLogic._
 
 object NotationParser extends RegexParsers {
   private def char2BigPiece(c: Char): Option[PieceType] = c match {
@@ -18,23 +17,23 @@ object NotationParser extends RegexParsers {
   }
 
 
-  private def file: Parser[PositionY] = """[a-h]""".r ^^ { s => fileToInt(s.head).head }
+  private def file: Parser[Position] = """[a-h]""".r ^^ { s => fileToInt(s.head).head }
 
-  private def fileToInt(c: Char): Option[PositionY] = c match {
-    case 'a' => Position.createPositionY(1)
-    case 'b' => Position.createPositionY(2)
-    case 'c' => Position.createPositionY(3)
-    case 'd' => Position.createPositionY(4)
-    case 'e' => Position.createPositionY(5)
-    case 'f' => Position.createPositionY(6)
-    case 'g' => Position.createPositionY(7)
-    case 'h' => Position.createPositionY(8)
+  private def fileToInt(c: Char): Option[Position] = c match {
+    case 'a' => Position.createPosition(1)
+    case 'b' => Position.createPosition(2)
+    case 'c' => Position.createPosition(3)
+    case 'd' => Position.createPosition(4)
+    case 'e' => Position.createPosition(5)
+    case 'f' => Position.createPosition(6)
+    case 'g' => Position.createPosition(7)
+    case 'h' => Position.createPosition(8)
     case _   => None
   }
 
   private def checkSymbol: Parser[String] = """[+#]+""".r
 
-  private def rank: Parser[PositionX] = """[12345678]""".r ^^ { x => Position.createPositionX(x.toInt).head }
+  private def rank: Parser[Position] = """[12345678]""".r ^^ { x => Position.createPosition(x.toInt).head }
 
   private def bigPiece: Parser[PieceType] = """[NBRQK]""".r ^^ { s => char2BigPiece(s.charAt(0)).get }
 

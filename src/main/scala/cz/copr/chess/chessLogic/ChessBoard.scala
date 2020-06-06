@@ -4,7 +4,7 @@ import cz.copr.chess.chessLogic.ChessBoard.Board
 import cz.copr.chess.chessLogic.Position.{PiecePosition, createPiecePosition}
 
 case class ChessBoard(board: Board) {
-  def getPawnsInFile(file: Position.PositionY, team: Team): Vector[ChessPiece] =
+  def getPawnsInFile(file: Position.Position, team: Team): Vector[ChessPiece] =
     getPawns(team).filter(p => p.position.y == file)
 
 

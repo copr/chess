@@ -11,25 +11,20 @@ object Position {
 //  }
 
   def createPiecePosition(x: Int, y: Int): Option[PiecePosition] = for {
-    positionX <- createPositionX(x)
-    positionY <- createPositionY(y)
+    positionX <- createPosition(x)
+    positionY <- createPosition(y)
   } yield PiecePosition(positionX, positionY)
 
-  def createPositionX(x: Int): Option[PositionX] =
-    RefType.applyRef[PositionX](x).toOption
+  def createPosition(x: Int): Option[Position] =
+    RefType.applyRef[Position](x).toOption
 
-  def createPositionY(y: Int): Option[PositionY] =
-    RefType.applyRef[PositionY](y).toOption
+  case class PiecePosition(x: Position, y: Position)
 
-  case class PiecePosition(x: PositionX, y: PositionY)
-
-//  type PositionX = String Refined MatchesRegex[W.`"abcdefgh"`.T]
-  type PositionX = Int Refined Interval.Closed[W.`1`.T, W.`8`.T]
-  type PositionY = Int Refined Interval.Closed[W.`1`.T, W.`8`.T]
+  type Position = Int Refined Interval.Closed[W.`1`.T, W.`8`.T]
 
   def addMove(piecePosition: PiecePosition, x: Int, y: Int): Option[PiecePosition] = for {
-    availablePositionX <- createPositionX(piecePosition.x.value + x)
-    availablePositionY <- createPositionY(piecePosition.y.value + y)
+    availablePositionX <- createPosition(piecePosition.x.value + x)
+    availablePositionY <- createPosition(piecePosition.y.value + y)
   } yield PiecePosition(availablePositionX, availablePositionY)
 
   def subtractMoves(piecePosition: PiecePosition, otherPiecePosition: PiecePosition): (Int, Int) =

@@ -1,18 +1,18 @@
 package cz.copr.chess.chessLogic
 
 import cats.effect.Sync
-import cz.copr.chess.chessLogic.Position.{ PositionX, PositionY }
+import cz.copr.chess.chessLogic.Position.Position
 import cz.copr.chess.portableGameNotation.NotationParser
 import io.circe.{ Decoder, Encoder, Json }
-import org.http4s.{ EntityDecoder, EntityEncoder }
 import org.http4s.circe._
+import org.http4s.{ EntityDecoder, EntityEncoder }
 
 
 sealed trait Move
-final case class BigPieceMove(piece: PieceType, file: Option[PositionY], rank: Option[PositionX], toFile: PositionY, toRank: PositionX) extends Move
-final case class BigPieceCapture(piece: PieceType, file: Option[PositionY], rank: Option[PositionX], captureFile: PositionY, captureRank: PositionX) extends Move
-final case class PawnMove(file: PositionY, toRank: PositionX, promoteTo: Option[PieceType]) extends Move
-final case class PawnCapture(file: PositionY, captureFile: PositionY, captureRank: PositionX, promoteTo: Option[PieceType]) extends Move
+final case class BigPieceMove(piece: PieceType, file: Option[Position], rank: Option[Position], toFile: Position, toRank: Position) extends Move
+final case class BigPieceCapture(piece: PieceType, file: Option[Position], rank: Option[Position], captureFile: Position, captureRank: Position) extends Move
+final case class PawnMove(file: Position, toRank: Position, promoteTo: Option[PieceType]) extends Move
+final case class PawnCapture(file: Position, captureFile: Position, captureRank: Position, promoteTo: Option[PieceType]) extends Move
 case object SmallCastling extends Move
 case object BigCastling extends Move
 
@@ -29,7 +29,7 @@ object Move {
     .decodeString
     .emap(s => NotationParser.parseMove(s))
 
-  def fileNumberToLetter(y: PositionY): String = y.value match {
+  def fileNumberToLetter(y: Position): String = y.value match {
     case 1 => "a"
     case 2 => "b"
     case 3 => "c"
@@ -40,7 +40,7 @@ object Move {
     case 8 => "h"
   }
 
-  def rankToString(x: PositionX): String = x.value.toString
+  def rankToString(x: Position): String = x.value.toString
 
   def pieceTypeToString(pieceType: PieceType): String = pieceType match {
     case PawnType   => ""
