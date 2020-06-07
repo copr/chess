@@ -39,4 +39,18 @@ class PositionTest extends Specification {
 
     result shouldEqual expectedPositions
   }
+
+  "should return positions between two positions on the same diagonal, going from right to left" in {
+    val pos1 = Position.createPiecePosition(5, 8).get
+    val pos2 = Position.createPiecePosition(8, 5).get
+
+    val result = Position.piecePositionsBetween(pos2, pos1).toSet
+    val expectedPositions = Set(
+      Position.createPiecePosition(6, 7),
+      Position.createPiecePosition(7, 6)
+    ).map(_.get)
+
+
+    result shouldEqual expectedPositions
+  }
 }

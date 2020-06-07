@@ -57,10 +57,10 @@ object Position {
     case _ => Vector()
   }
 
-  private def positionsBetween(position1: Position, position2: Position): Vector[Position] = (position1, position2) match {
-    case (p1, p2) if p1.value > p2.value => Vector.range(position2.value + 1, position1.value).flatMap(createPosition)
+  private def positionsBetween(position1: Position, position2: Position): Vector[Position] = ((position1, position2) match {
+    case (p1, p2) if p1.value > p2.value => Vector.range(position1.value - 1, position2.value, -1).flatMap(createPosition)
     case (p1, p2) if p1.value < p2.value => Vector.range(position1.value + 1, position2.value).flatMap(createPosition)
     case _                               => Vector()
-  }
+  })
 }
 

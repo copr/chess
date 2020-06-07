@@ -11,7 +11,6 @@ class RandomClient[F[_] : Sync](val random: scala.util.Random) extends ChessClie
     for {
       index <- Sync[F].delay(random.nextInt(moves.length))
       move   = moves(index)
-      _     <- Sync[F].delay(println(moves))
     } yield move
   }
 

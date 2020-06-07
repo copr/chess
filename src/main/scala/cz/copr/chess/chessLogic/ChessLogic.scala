@@ -18,7 +18,7 @@ object ChessLogic {
       case pc: PawnCapture      => pawnCapture(pc, clearedEnpasantableState)
       case pm: PawnMove         => pawnMove(pm, clearedEnpasantableState)
     }
-    stateAfterMove.map(gs => isDraw(isCheckMate(gs)))
+    stateAfterMove.map(gs => isCheckMate(isDraw(gs)))
   }
 
   def bigCastling(gameState: ChessState): ChessState.MoveResult = for {
@@ -249,10 +249,9 @@ object ChessLogic {
   }
 
   def whoThreatens(board: ChessBoard, piece: ChessPiece): Vector[ChessPiece] = {
-    val otherTeamsPieces = board.getOtherTeamsPieces(piece.team.getOtherTeam)
-    otherTeamsPieces
-      .filter(_.position != piece.position)
-      .filter(canPieceMove(_, piece, board))
+    board
+      .getOtherTeamsPieces(piece.team)
+      .filter(canMove(_, piece, board))
   }
 
   def isCheck(board: ChessBoard, team: Team): Boolean = (for {
@@ -263,7 +262,7 @@ object ChessLogic {
   def canCheckBePrevented(chessState: ChessState): Boolean = {
     val team = chessState.team
     val board = chessState.board
-    val king = board.getKing(team).head
+    val king = board.getKing(team.getOtherTeam).head
     val checkingPieces = whoThreatens(board, king)
     val piecesAbleToCaptureCheckingPieces = checkingPieces.flatMap(checkingPiece => whoThreatens(board, checkingPiece))
     val positionsThatCanPreventCheck = checkingPieces.flatMap(checkingPiece => Position.piecePositionsBetween(king.position, checkingPiece.position))

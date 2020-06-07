@@ -185,11 +185,7 @@ class GameLogicTest extends Specification {
     }
 
     "state that game is drawn when either team has not enough material to checkmate" in {
-      val moves = List("Qd4+", "Qxd4+", "Kxd4")
-        .map(NotationParser
-          .parseMove(_)
-          .getOrElse(throw new RuntimeException("Wrong moves"))
-        )
+      val moves = parseMoves(List("Qd4+", "Qxd4+", "Kxd4"))
       val board = ChessBoard(Map())
         .putChessPiece(King(createPiecePosition(3, 5).get, White, moved = true))
         .putChessPiece(King(createPiecePosition(6, 4).get, Black, moved = true))
@@ -201,19 +197,26 @@ class GameLogicTest extends Specification {
     }
 
     "state that game is won by white when black king is checked and no one can prevent it" in {
-      val moves = List("e4", "a6", "Qf3", "a5", "Bc4", "a4", "Qf7")
-        .map(NotationParser
-          .parseMove(_)
-          .getOrElse(throw new RuntimeException("Wrong moves"))
-        )
+      val moves = parseMoves(List("e4", "a6", "Qf3", "a5", "Bc4", "a4", "Qf7"))
 
       val result = TestGame.playFromInitialState(moves)
 
-      ConsoleGame.putCurrentState(result).unsafeRunSync()
-
       result.gameResult shouldEqual WhiteWon
     }
+
+    "state that game is ongoing when black king is checked, king has nowhere to move, but there is a piece that can prevent check mate" in {
+      val moves = parseMoves(List("e4", "f6", "Qh5"))
+
+      val result = TestGame.playFromInitialState(moves)
+
+      result.gameResult shouldEqual Ongoing
+    }
   }
+
+  def parseMoves(moves: List[String]): List[Move] =
+    moves
+      .map(NotationParser.parseMove)
+      .map(_.getOrElse(throw new RuntimeException("Moves incorrectly specified")))
 
   def createCastlingSequenceKingMoves(team: Team, big: Boolean): (ChessState, List[Move]) = {
     val (board, xPosition, newXPosition, _) = setupCastling(team, big)
