@@ -28,4 +28,12 @@ class ChessPieceMovesTest extends Specification {
       ChessPiece.canBishopMove(b, o) must beEqualTo(false)
     }
   }
+
+  "GameTest canKingMove" should {
+    "allow king to capture oponnents piece diagonally" in {
+      val k = King(Position.createPiecePosition(5, 5).get, White, false)
+      val q = Queen(Position.createPiecePosition(6, 6).get, Black)
+      ChessPiece.canKingMove(k, q) must beEqualTo(true)
+    }
+  }
 }

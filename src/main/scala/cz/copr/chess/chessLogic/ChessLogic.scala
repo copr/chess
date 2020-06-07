@@ -248,14 +248,37 @@ object ChessLogic {
     case Empty(_, _)     => false
   }
 
+  def whoThreatens(board: ChessBoard, piece: ChessPiece): Vector[ChessPiece] = {
+    val otherTeamsPieces = board.getOtherTeamsPieces(piece.team.getOtherTeam)
+    otherTeamsPieces
+      .filter(_.position != piece.position)
+      .filter(canPieceMove(_, piece, board))
+  }
+
   def isCheck(board: ChessBoard, team: Team): Boolean = (for {
-    king <- board.getKing(team).headOption
-    otherTeamsPieces = board.getOtherTeamsPieces(team)
-    isChecked = otherTeamsPieces.exists(p => canPieceMove(p, king, board))
+    king     <- board.getKing(team).headOption
+    isChecked = whoThreatens(board, king).nonEmpty
   } yield isChecked).getOrElse(false)
 
+  def canCheckBePrevented(chessState: ChessState): Boolean = {
+    val team = chessState.team
+    val board = chessState.board
+    val king = board.getKing(team).head
+    val checkingPieces = whoThreatens(board, king)
+    val piecesAbleToCaptureCheckingPieces = checkingPieces.flatMap(checkingPiece => whoThreatens(board, checkingPiece))
+    val positionsThatCanPreventCheck = checkingPieces.flatMap(checkingPiece => Position.piecePositionsBetween(king.position, checkingPiece.position))
+    val piecesThatCanBlockCheck = for {
+      piece    <- chessState.board.getAllTeamsPieces(king.team)
+      position <- positionsThatCanPreventCheck
+      if canMoveToPosition(piece, position, chessState.board)
+    } yield piece
+    piecesAbleToCaptureCheckingPieces.nonEmpty || piecesThatCanBlockCheck.nonEmpty
+  }
+
   def isCheckMate(gameState: ChessState): ChessState =
-    if (isCheck(gameState.board, gameState.team.getOtherTeam) && !canKingGoAnywhere(gameState.board, gameState.team.getOtherTeam)) {
+    if (isCheck(gameState.board, gameState.team.getOtherTeam) &&
+        !canKingGoAnywhere(gameState.board, gameState.team.getOtherTeam) &&
+        !canCheckBePrevented(gameState)) {
       val finishedState = if (gameState.team == White) WhiteWon else BlackWon
       gameState.copy(gameResult = finishedState)
     } else {
@@ -267,7 +290,7 @@ object ChessLogic {
       game.copy(gameResult = Draw)
     } else if (!isEnoughMaterial(game)) {
       game.copy(gameResult = Draw)
-    } else{
+    } else {
       game
     }
 
@@ -291,7 +314,7 @@ object ChessLogic {
 
   def getAllPossibleMoves(game: ChessState): LazyList[Move] =
     game.board.getAllTeamsPieces(game.team.getOtherTeam).to(LazyList).flatMap {
-      case p: Pawn   => getAllPosibbleMovesForPawn(p, game)
+      case p: Pawn   => getAllPossibleMovesForPawn(p, game)
       case r: Rook   => getAllPossibleMovesForRook(r, game)
       case b: Bishop => getAllPossibleMovesForBishop(b, game)
       case n: Knight => getAllPossibleMovesForKnight(n, game)
@@ -300,17 +323,17 @@ object ChessLogic {
       case _         => LazyList.empty
     }
 
-  def getAllPosibbleMovesForPawn(pawn: Pawn, game: ChessState): LazyList[Move] = {
+  def getAllPossibleMovesForPawn(pawn: Pawn, game: ChessState): LazyList[Move] = {
     val sign = if (pawn.team == White) 1 else -1
     val possibleMoves = LazyList((sign * 1, 0), (sign * 2, 0))
       .flatMap(tup => Position.addMove(pawn.position, tup._1, tup._2))
       .map(game.board.getPieceOnPosition)
-      .filter(canPawnMove(pawn, _))
+      .filter(canMove(pawn, _, game.board))
       .map(otherPiece => PawnMove(otherPiece.position.y, otherPiece.position.x, None))
     val possibleCaptures = LazyList((sign * 1, 1), (sign * 1, -1))
       .flatMap(tup => Position.addMove(pawn.position, tup._1, tup._2))
       .map(game.board.getPieceOnPosition)
-      .filter(canPawnMove(pawn, _))
+      .filter(canMove(pawn, _, game.board))
       .map(otherPiece => PawnCapture(pawn.position.y, otherPiece.position.y, otherPiece.position.x, None))
     possibleMoves ++ possibleCaptures
   }
@@ -380,7 +403,7 @@ object ChessLogic {
   }
 
   def getAllPossibleMovesFor(game: ChessState, chessPiece: ChessPiece): LazyList[Move] = chessPiece match {
-    case pawn: Pawn     => getAllPosibbleMovesForPawn(pawn, game)
+    case pawn: Pawn     => getAllPossibleMovesForPawn(pawn, game)
     case rook: Rook     => getAllPossibleMovesForRook(rook, game)
     case bishop: Bishop => getAllPossibleMovesForBishop(bishop, game)
     case knight: Knight => getAllPossibleMovesForKnight(knight, game)

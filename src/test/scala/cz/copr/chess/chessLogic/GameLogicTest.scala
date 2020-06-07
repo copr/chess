@@ -15,8 +15,8 @@ class GameLogicTest extends Specification {
       PortableGameNotationParser.parsePng(s) match {
         case Right(value) =>
           val game = TestGame.playFromInitialState(value.moves.map(_._1))
-          game.gameResult.isFinished
-        case Left(_) => false
+          game.gameResult.isFinished shouldEqual true
+        case Left(_) => true shouldEqual false
       }
     }
 
@@ -185,7 +185,11 @@ class GameLogicTest extends Specification {
     }
 
     "state that game is drawn when either team has not enough material to checkmate" in {
-      val moves = List("Qd4+", "Qxd4+", "Kxd4").map(NotationParser.parseMove(_).getOrElse(throw new RuntimeException("Wrong moves")))
+      val moves = List("Qd4+", "Qxd4+", "Kxd4")
+        .map(NotationParser
+          .parseMove(_)
+          .getOrElse(throw new RuntimeException("Wrong moves"))
+        )
       val board = ChessBoard(Map())
         .putChessPiece(King(createPiecePosition(3, 5).get, White, moved = true))
         .putChessPiece(King(createPiecePosition(6, 4).get, Black, moved = true))
@@ -194,6 +198,20 @@ class GameLogicTest extends Specification {
         .putChessPiece(Knight(createPiecePosition(5, 3).get, White))
       val game = ChessState(board, White, Ongoing, List())
       TestGame.playFromState(moves, game).gameResult == Draw
+    }
+
+    "state that game is won by white when black king is checked and no one can prevent it" in {
+      val moves = List("e4", "a6", "Qf3", "a5", "Bc4", "a4", "Qf7")
+        .map(NotationParser
+          .parseMove(_)
+          .getOrElse(throw new RuntimeException("Wrong moves"))
+        )
+
+      val result = TestGame.playFromInitialState(moves)
+
+      ConsoleGame.putCurrentState(result).unsafeRunSync()
+
+      result.gameResult shouldEqual WhiteWon
     }
   }
 
