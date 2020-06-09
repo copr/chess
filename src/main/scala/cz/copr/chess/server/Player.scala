@@ -29,4 +29,8 @@ object Player {
   implicit val playerDecoder: Decoder[Player] = deriveDecoder[Player]
   implicit def playerEntityDecoder[F[_] : Sync]: EntityDecoder[F, Player] =
     jsonOf[F, Player]
+
+  implicit val playerEncoder: Encoder[Player] = deriveEncoder[Player]
+  implicit def playerEntityEncoder[F[_] : Sync]: EntityEncoder[F, Player] =
+    jsonEncoderOf[F, Player]
 }

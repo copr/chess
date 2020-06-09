@@ -1,14 +1,13 @@
 package cz.copr.chess.server
 
-import cats.implicits._
 import cats.effect.Sync
+import cats.implicits._
 import cz.copr.chess.server.ChessRepo.MoveRequest
 import cz.copr.chess.server.GameState.GameId
 import cz.copr.chess.server.Player._
-import io.circe.Decoder.Result
 import io.circe._
-import io.circe.generic.auto._
 import io.circe.generic.semiauto._
+import io.circe.generic.auto._
 import org.http4s.circe._
 import org.http4s.{ EntityDecoder, EntityEncoder }
 import org.joda.time.DateTime
@@ -68,9 +67,9 @@ object GameState {
   implicit def gameIdEntityEncoder[F[_] : Sync]: EntityEncoder[F, GameId] = jsonEncoderOf[F, GameId]
 
   implicit val datetimeEncoder: Encoder[DateTime] = (dt: DateTime) => Json.fromLong(dt.toInstant.getMillis)
-
-  implicit val gameStateEncoder: Encoder[GameState] = deriveEncoder[GameState]
+  implicit val datetimeDecoder: Decoder[DateTime] = Decoder.decodeLong.map(new DateTime(_))
 
   implicit def gameStateEntityEncoder[F[_] : Sync]: EntityEncoder[F, GameState] = jsonEncoderOf[F, GameState]
+  implicit def gameStateEntityDecoder[F[_] : Sync]: EntityDecoder[F, GameState] = jsonOf[F, GameState]
 
 }

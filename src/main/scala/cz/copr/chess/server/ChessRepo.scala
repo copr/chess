@@ -2,26 +2,23 @@ package cz.copr.chess.server
 
 import java.util.UUID
 
+import cats.data.OptionT
+import cats.effect.Sync
 import cats.implicits._
-import cats.{ Id, Monad, MonadError }
-import com.olegpy.meow.effects._
-import cats.data.{ OptionT, ReaderT }
-import cats.effect.{ IO, Sync }
-import cats.effect.concurrent.Ref
 import cats.mtl._
-import cats.mtl.implicits._
+import cats.{ Monad, MonadError }
 import cz.copr.chess.chessLogic.Move
 import cz.copr.chess.server.ChessRepo.{ FinishGameRequest, MoveRequest, NewGameRequest }
 import cz.copr.chess.server.GameState.GameId
 import cz.copr.chess.server.Player.PlayerId
-import io.circe.Encoder
+import io.circe.{ Decoder, Encoder }
+import io.circe.generic.semiauto._
 import io.circe.generic.auto._
-import monocle.macros.GenLens
 import monocle.function.all._
+import monocle.macros.GenLens
 import org.http4s.circe._
 import org.http4s.{ EntityDecoder, EntityEncoder }
 import org.joda.time.DateTime
-import GameState.gameStatusDecoder
 
 trait ChessRepo[F[_]] {
   def getPlayers: F[List[Player]]
@@ -97,6 +94,9 @@ case class RegistrationRequest(
 object RegistrationRequest {
   implicit def registrationRequestEntityDecoder[F[_] : Sync]: EntityDecoder[F, RegistrationRequest] =
     jsonOf[F, RegistrationRequest]
+
+  implicit def registrationRequestEntityEncoder[F[_] : Sync]: EntityEncoder[F, RegistrationRequest] =
+    jsonEncoderOf[F, RegistrationRequest]
 }
 
 // TODO: mozna predelat monad na sync?
@@ -196,23 +196,40 @@ class MemoryRepo[F[_]](implicit
 }
 
 object ChessRepo {
+  import GameState._
+
   def apply[F[_]](implicit repo: ChessRepo[F]): ChessRepo[F] = repo
 
-  case class NewGameRequest(whitePlayer: PlayerId, blackPlayer: PlayerId)
+  final case class NewGameRequest(whitePlayer: PlayerId, blackPlayer: PlayerId)
 
-  case class MoveRequest(playerId: PlayerId, gameId: GameId, move: Move)
-
+  sealed trait PlayRequest
+  final case class MoveRequest(playerId: PlayerId, gameId: GameId, move: Move) extends PlayRequest
   // TODO: predelat GameStatus na neco omezenjsiho co povoluje jen WhiteWin, BlackWin a Draw
-  case class FinishGameRequest(playerId: PlayerId, gameId: GameId, result: GameStatus)
+  final case class FinishGameRequest(playerId: PlayerId, gameId: GameId, result: GameStatus) extends PlayRequest
 
   implicit def newGameRequestEntityDecoder[F[_] : Sync]: EntityDecoder[F, NewGameRequest] =
     jsonOf[F, NewGameRequest]
 
+  implicit def newGameRequestEntityEncoder[F[_]: Sync]: EntityEncoder[F, NewGameRequest] =
+    jsonEncoderOf[F, NewGameRequest]
+
   implicit def moveRequestEntityDecoder[F[_] : Sync]: EntityDecoder[F, MoveRequest] =
     jsonOf[F, MoveRequest]
 
+  implicit def moveRequestEntityEncoder[F[_] : Sync]: EntityEncoder[F, MoveRequest] =
+    jsonEncoderOf[F, MoveRequest]
+
   implicit def finishGameRequestEntityDecoder[F[_] : Sync]: EntityDecoder[F, FinishGameRequest] =
     jsonOf[F, FinishGameRequest]
+
+  implicit def finishGameRequestEntityEncoder[F[_] : Sync]: EntityEncoder[F, FinishGameRequest] =
+    jsonEncoderOf[F, FinishGameRequest]
+
+  implicit def playRequestEntityDecoder[F[_] : Sync]: EntityDecoder[F, PlayRequest] =
+    jsonOf[F, PlayRequest]
+
+  implicit def playRequestEntityEncoder[F[_] : Sync]: EntityEncoder[F, PlayRequest] =
+    jsonEncoderOf[F, PlayRequest]
 
   implicit def listEntityEncoder[F[_] : Sync, A](implicit E: Encoder[A]): EntityEncoder[F, List[A]] = jsonEncoderOf[F, List[A]]
 }

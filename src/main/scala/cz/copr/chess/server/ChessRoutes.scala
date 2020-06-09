@@ -3,20 +3,24 @@ package cz.copr.chess.server
 import cats.effect.Sync
 import cats.implicits._
 import cz.copr.chess.server.ChessRepo.{ FinishGameRequest, MoveRequest, NewGameRequest, listEntityEncoder }
+import cz.copr.chess.server.GameState.GameId
 import cz.copr.chess.server.Player._
+import cz.copr.chess.server.RegistrationRequest.registrationRequestEntityDecoder
+import io.circe.Json
 import org.http4s.HttpRoutes
 import org.http4s.dsl.Http4sDsl
-import io.circe.generic.auto._
-import io.circe.syntax._
-import RegistrationRequest.registrationRequestEntityDecoder
-import io.circe.Json
-import ChessRepo.listEntityEncoder
+import cz.copr.chess.server.GameState.gameIdDecoder
 
 object ChessRoutes {
 
   object PlayerIdVar {
     def unapply(str: String): Option[PlayerId] =
       playerIdDecoder.decodeJson(Json.fromString(str)).toOption
+  }
+
+  object GameIdVar {
+    def unapply(str: String): Option[GameId] =
+      gameIdDecoder.decodeJson(Json.fromString(str)).toOption
   }
 
   def chessRoutes[F[_]: Sync](repo: ChessRepo[F]): HttpRoutes[F] = {
@@ -49,11 +53,21 @@ object ChessRoutes {
             .getGames(playerId)
             .attempt
             .flatMap {
-            case Left(t) => BadRequest(t.getMessage)
-            case Right(gameList) => Ok(gameList)
+              case Left(t)         => BadRequest(t.getMessage)
+              case Right(gameList) => Ok(gameList)
+          }
+
+      case GET -> Root / "game" / GameIdVar(gameId) =>
+        repo
+          .getGame(gameId)
+          .attempt
+          .flatMap {
+            case Left(t)          => BadRequest(t.getMessage)
+            case Right(gameState) => Ok(gameState)
           }
 
       case req @ POST -> Root / "play" =>
+        // tohle je asi zbytecne slozite
         req.attemptAs[MoveRequest].value.flatMap {
           case Right(moveRequest) => repo.move(moveRequest)
           case Left(_) => req.as[FinishGameRequest].flatMap(finishGameRequest => repo.finish(finishGameRequest))
@@ -61,7 +75,7 @@ object ChessRoutes {
         .attempt
         .flatMap {
           case Left(t) => BadRequest(t.getMessage)
-          case Right(gameList) => Ok(gameList)
+          case Right(_) => Ok()
         }
 
       case GET -> Root / "players" =>
